@@ -23,8 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          submodules: recursive
           persist-credentials: false
+      - name: Check out pinned submodules
+        env:
+          REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
+        run: |
+          test -n "$REPO_READ_TOKEN" || { echo "REPO_READ_TOKEN must grant read access to the private libopenzilo repository"; exit 1; }
+          git -c url."https://x-access-token:${REPO_READ_TOKEN}@github.com/".insteadOf="https://github.com/" submodule update --init --recursive
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
