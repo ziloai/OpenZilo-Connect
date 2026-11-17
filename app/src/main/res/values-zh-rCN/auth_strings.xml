@@ -1,0 +1,30 @@
+<resources>
+    <string name="auth_title">连接授权</string>
+    <string name="auth_app_request">%1$s 想使用你的戒指</string>
+    <string name="auth_certificate">应用签名 SHA-256\n%1$s</string>
+    <string name="auth_bound_identity">授权绑定此应用及其签名证书。</string>
+    <string name="auth_privacy_warning">可在应用页撤销授权。删除录音不可恢复。</string>
+    <string name="auth_deny">拒绝</string>
+    <string name="auth_allow">允许这些能力</string>
+    <string name="auth_failed">授权失败或已过期，请让应用重新申请授权。</string>
+    <string name="auth_scope_info">设备信息</string>
+    <string name="auth_scope_recording">录音控制</string>
+    <string name="auth_scope_audio">录音文件和实时音频</string>
+    <string name="auth_scope_sensors">运动传感器和手势</string>
+    <string name="auth_scope_logs">设备日志</string>
+    <string name="auth_scope_time">时间同步</string>
+    <string name="auth_scope_firmware">固件升级</string>
+    <string name="auth_scope_unknown">未知能力</string>
+    <string name="auth_description_info">读取连接状态、电量、固件版本和设备身份信息。</string>
+    <string name="auth_description_recording">开始、停止和配置录音，监听保存完成事件。</string>
+    <string name="auth_description_audio">读取和永久清除全部录音文件，订阅实时音频。</string>
+    <string name="auth_description_sensors">启停 IMU，读取运动数据和按键、手势事件。</string>
+    <string name="auth_description_logs">读取设备运行日志，日志可能包含敏感信息。</string>
+    <string name="auth_description_time">向戒指回复时间同步请求。</string>
+    <string name="auth_description_firmware">安装已通过内置公钥验证的固件。</string>
+    <string name="auth_notification_channel">戒指连接</string>
+    <string name="auth_notification_title">OpenZilo Connect</string>
+    <string name="auth_notification_body">正在维护戒指连接，已授权的应用可使用戒指</string>
+    <string name="auth_disconnect">断开连接</string>
+    <string name="auth_operation_failed">操作失败，请检查连接状态和已授予的权限。</string>
+</resources>

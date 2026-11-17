@@ -1,0 +1,30 @@
+<resources>
+    <string name="auth_title">Connection access</string>
+    <string name="auth_app_request">%1$s wants to use your ring</string>
+    <string name="auth_certificate">Application signing certificate SHA-256\n%1$s</string>
+    <string name="auth_bound_identity">Access is bound to this app and its signing certificate.</string>
+    <string name="auth_privacy_warning">Access can be revoked in Apps. Deleted recordings cannot be recovered.</string>
+    <string name="auth_deny">Deny</string>
+    <string name="auth_allow">Allow these capabilities</string>
+    <string name="auth_failed">Authorization failed or expired. Ask the application to request access again.</string>
+    <string name="auth_scope_info">Device information</string>
+    <string name="auth_scope_recording">Recording control</string>
+    <string name="auth_scope_audio">Audio files and live audio</string>
+    <string name="auth_scope_sensors">Motion sensors and gestures</string>
+    <string name="auth_scope_logs">Device logs</string>
+    <string name="auth_scope_time">Time synchronization</string>
+    <string name="auth_scope_firmware">Firmware updates</string>
+    <string name="auth_scope_unknown">Unknown capability</string>
+    <string name="auth_description_info">Read connection state, battery level, firmware version and device identity.</string>
+    <string name="auth_description_recording">Start, stop and configure recordings, and listen for saved recordings.</string>
+    <string name="auth_description_audio">Read and permanently clear all recordings, and subscribe to live audio.</string>
+    <string name="auth_description_sensors">Start and stop IMU reports, and receive motion, button and gesture events.</string>
+    <string name="auth_description_logs">Read device runtime logs, which may contain sensitive information.</string>
+    <string name="auth_description_time">Reply to time synchronization requests from the ring.</string>
+    <string name="auth_description_firmware">Install firmware verified with the built-in public key.</string>
+    <string name="auth_notification_channel">Ring connection</string>
+    <string name="auth_notification_title">OpenZilo Connect</string>
+    <string name="auth_notification_body">Maintaining the ring connection for authorized applications</string>
+    <string name="auth_disconnect">Disconnect</string>
+    <string name="auth_operation_failed">The operation failed. Check the connection and granted permissions.</string>
+</resources>
