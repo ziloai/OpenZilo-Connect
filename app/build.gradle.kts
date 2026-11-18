@@ -10,8 +10,8 @@ android {
         applicationId = "com.openzilo.connect"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("connectVersionCode").get().toInt()
+        versionName = providers.gradleProperty("connectVersion").get()
         ndk { abiFilters += providers.gradleProperty("nativeAbis").orElse("arm64-v8a,x86_64").get().split(",") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

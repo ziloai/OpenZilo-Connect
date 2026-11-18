@@ -11,7 +11,10 @@ dependencyResolutionManagement {
                 ivy {
                     name = "OpenZiloCoreReleases"
                     url = uri("https://github.com/ziloai/libopenzilo/releases/download")
-                    patternLayout { artifact("android-v[revision]/[artifact]-[revision].[ext]") }
+                    patternLayout {
+                        artifact("v[revision]/[artifact]-[revision].[ext]")
+                        artifact("android-v[revision]/[artifact]-[revision].[ext]")
+                    }
                     metadataSources { artifact() }
                 }
             }

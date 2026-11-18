@@ -1,10 +1,10 @@
-name: Publish Android client API
+name: Publish OpenZilo Connect
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Android artifact version (X.Y.Z)
+        description: Release version matching connectVersion (X.Y.Z)
         required: true
         type: string
 
@@ -15,7 +15,7 @@ jobs:
   build:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       VERSION: ${{ inputs.version }}
     steps:
@@ -23,23 +23,27 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate version
-        run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]'
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          grep -Fxq "connectVersion=$VERSION" gradle.properties
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
         with:
-          packages: platforms;android-37.0 build-tools;37.0.0
+          packages: platforms;android-37.0 platforms;android-37.2 build-tools;37.0.0
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
-      - name: Build client AAR
+      - name: Test and package the app and API
         run: |
-          ./gradlew --no-daemon :connect-api:lintRelease :connect-api:assembleRelease
+          ./gradlew --no-daemon --max-workers=2 testDebugUnitTest lintDebug :connect-api:assembleRelease :app:assembleDebug :app:bundleRelease
           install -D connect-api/build/outputs/aar/connect-api-release.aar "$RUNNER_TEMP/release/connect-api-$VERSION.aar"
+          install app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/release/OpenZilo-Connect-$VERSION-debug.apk"
+          install app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/release/OpenZilo-Connect-$VERSION-unsigned.aab"
           cp LICENSE "$RUNNER_TEMP/release/"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: android-aar
+          name: connect-release
           path: ${{ runner.temp }}/release/*
           if-no-files-found: error
   publish:
@@ -53,5 +57,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: android-aar
-      - run: gh release create "android-v$VERSION" "connect-api-$VERSION.aar" LICENSE --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "OpenZilo Connect Android API $VERSION" --notes "Binder client built from $GITHUB_SHA. Consumers must include org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2 and install a compatible OpenZilo Connect app."
+          name: connect-release
+      - run: |
+          gh release create "v$VERSION" "connect-api-$VERSION.aar" "OpenZilo-Connect-$VERSION-debug.apk" \
+            "OpenZilo-Connect-$VERSION-unsigned.aab" LICENSE --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "OpenZilo Connect $VERSION" \
+            --notes "The APK is debug-signed for testing. The release AAB is unsigned. AAR consumers must include org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2 and install a compatible Connect app."

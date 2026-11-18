@@ -29,7 +29,10 @@ The Android client AAR is distributed via [GitHub Releases](https://github.com/z
 ```kotlin
 ivy {
     url = uri("https://github.com/ziloai/OpenZilo-Connect/releases/download")
-    patternLayout { artifact("android-v[revision]/[artifact]-[revision].[ext]") }
+    patternLayout {
+        artifact("v[revision]/[artifact]-[revision].[ext]")
+        artifact("android-v[revision]/[artifact]-[revision].[ext]")
+    }
     metadataSources { artifact() }
     content { includeModule("io.github.ziloai", "connect-api") }
 }
@@ -43,6 +46,10 @@ implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 ```
 
 Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; Connect and Input use Kotlin 2.4.21. The AAR is not an installable app. Install a compatible version of Connect on the device. There is no published Maven Central artifact or desktop/iOS host in this repository yet.
+
+## Releases
+
+The `android-release.yml` workflow publishes the client AAR, an installable debug-signed APK, and an unsigned release AAB together. Its `version` input must match `connectVersion` in `gradle.properties`.
 
 ## License
 
