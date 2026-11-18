@@ -11,6 +11,10 @@
     <string name="ui_refresh">刷新信息</string>
     <string name="ui_refresh_failed">无法刷新设备信息。</string>
     <string name="ui_disconnect">断开连接</string>
+    <string name="ui_waiting_for_ring">正在等待戒指</string>
+    <string name="ui_pause_reconnect">暂停自动连接</string>
+    <string name="ui_reconnect">重新连接</string>
+    <string name="ui_forget_ring">解除绑定</string>
     <string name="ui_disconnect_failed">无法断开连接。</string>
     <string name="ui_scanning">正在扫描…</string>
     <string name="ui_find_connect">查找戒指</string>
@@ -76,7 +80,7 @@
     <string name="ui_authorization_checks">应用身份</string>
     <string name="ui_package_and_certificate">包名与签名证书</string>
     <string name="ui_authorized">已授权</string>
-    <string name="ui_authorized_apps">已授权应用</string>
+    <string name="ui_authorized_apps">应用权限</string>
     <string name="ui_no_authorized_apps">暂无授权应用</string>
     <string name="ui_authorization_explanation">应用获得授权后会显示在这里。</string>
     <string name="ui_list_separator">、</string>

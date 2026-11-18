@@ -29,7 +29,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import com.openzilo.connect.core.RingIdentityMismatch
+import com.openzilo.connect.core.ringIdentity
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -500,23 +506,109 @@ class ConnectService : Service() {
         }
     }
 
+    private var connectionTask: Job? = null
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.getStringExtra(CONTROL_TOKEN) != controlSecret) return START_NOT_STICKY
-        when (intent.action) {
+        if (intent != null && intent.getStringExtra(CONTROL_TOKEN) != controlSecret) {
+            if (!started) stopSelf(startId)
+            return if (started) START_STICKY else START_NOT_STICKY
+        }
+        val binding = host.binding.value
+        when (intent?.action) {
+            ACTION_DISCONNECT, ACTION_FORGET -> {
+                host.saveBinding(if (intent.action == ACTION_FORGET) null else binding?.copy(autoConnect = false))
+                replaceConnectionTask {
+                    host.controller.disconnect()
+                    stopTracking()
+                }
+                return START_NOT_STICKY
+            }
             ACTION_CONNECT -> {
                 val address = intent.getStringExtra("address") ?: return START_NOT_STICKY
-                startForeground(NOTIFICATION, notification())
-                started = true
-                scope.launch { runCatching { host.controller.connect(address) } }
+                if (!startTracking()) return START_NOT_STICKY
+                replaceConnectionTask {
+                    try {
+                        host.controller.connect(address)
+                        val connected = host.controller.state.value
+                        val info = checkNotNull(connected.info)
+                        val saved = RingBinding(address, connected.deviceName, ringIdentity(info, address), autoConnect = true)
+                        host.saveBinding(saved)
+                        maintainConnection(saved)
+                    } catch (error: CancellationException) {
+                        if (error !is kotlinx.coroutines.TimeoutCancellationException) throw error
+                        stopTracking()
+                    } catch (_: Exception) {
+                        stopTracking()
+                    }
+                }
             }
-            ACTION_DISCONNECT -> scope.launch {
-                runCatching { host.controller.disconnect() }
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                started = false
-                stopSelf()
+            ACTION_RESUME, null -> {
+                if (binding == null || (intent == null && !binding.autoConnect)) {
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                if (started && connectionTask?.isActive == true) return START_STICKY
+                if (!startTracking()) return START_NOT_STICKY
+                val activeBinding = binding.copy(autoConnect = true)
+                host.saveBinding(activeBinding)
+                replaceConnectionTask { maintainConnection(activeBinding) }
+            }
+            else -> return START_NOT_STICKY
+        }
+        return START_STICKY
+    }
+
+    private fun replaceConnectionTask(block: suspend () -> Unit) {
+        val previous = connectionTask
+        previous?.cancel()
+        connectionTask = scope.launch(Dispatchers.Main) {
+            previous?.cancelAndJoin()
+            block()
+        }
+    }
+
+    private fun startTracking(): Boolean = try {
+        startForeground(NOTIFICATION, notification())
+        started = true
+        true
+    } catch (_: SecurityException) {
+        stopSelf()
+        false
+    }
+
+    private fun stopTracking() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        started = false
+        stopSelf()
+    }
+
+    private suspend fun maintainConnection(binding: RingBinding) {
+        var retryDelay = 1_000L
+        while (scope.isActive) {
+            if (host.controller.state.value.phase != "disconnected") {
+                host.controller.state.first { it.phase == "disconnected" }
+                delay(1_000)
+            }
+            host.upgrading.first { !it }
+            try {
+                host.controller.connect(binding.address, binding.identity, binding.name)
+                retryDelay = 1_000
+            } catch (error: CancellationException) {
+                if (error !is kotlinx.coroutines.TimeoutCancellationException) throw error
+                delay(retryDelay)
+                retryDelay = (retryDelay * 2).coerceAtMost(60_000)
+            } catch (_: RingIdentityMismatch) {
+                host.saveBinding(binding.copy(autoConnect = false))
+                stopTracking()
+                return
+            } catch (_: SecurityException) {
+                stopTracking()
+                return
+            } catch (_: Exception) {
+                delay(retryDelay)
+                retryDelay = (retryDelay * 2).coerceAtMost(60_000)
             }
         }
-        return START_NOT_STICKY
     }
 
     private fun notification(): Notification {
@@ -542,6 +634,8 @@ class ConnectService : Service() {
     companion object {
         const val ACTION_CONNECT = "com.openzilo.connect.CONNECT"
         const val ACTION_DISCONNECT = "com.openzilo.connect.DISCONNECT"
+        private const val ACTION_RESUME = "com.openzilo.connect.RESUME"
+        private const val ACTION_FORGET = "com.openzilo.connect.FORGET"
         private const val CONTROL_TOKEN = "internalControlToken"
         private val controlSecret = UUID.randomUUID().toString()
         private const val CHANNEL = "ring-connection"
@@ -550,6 +644,10 @@ class ConnectService : Service() {
             .setAction(ACTION_CONNECT).putExtra("address", address).putExtra(CONTROL_TOKEN, controlSecret)
         fun disconnectIntent(context: Context): Intent = Intent(context, ConnectService::class.java)
             .setAction(ACTION_DISCONNECT).putExtra(CONTROL_TOKEN, controlSecret)
+        fun resumeIntent(context: Context): Intent = Intent(context, ConnectService::class.java)
+            .setAction(ACTION_RESUME).putExtra(CONTROL_TOKEN, controlSecret)
+        fun forgetIntent(context: Context): Intent = Intent(context, ConnectService::class.java)
+            .setAction(ACTION_FORGET).putExtra(CONTROL_TOKEN, controlSecret)
     }
 }
 

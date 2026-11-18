@@ -43,6 +43,9 @@ object GrantPolicy {
         0x401 -> "time"
         else -> null
     }
+    internal fun withScope(current: Set<String>, scope: String, enabled: Boolean): Set<String> =
+        if (enabled) current + scope else current - scope
+
     fun matches(grant: AppGrant, principal: AppPrincipal, scope: String): Boolean =
         grant.packageName == principal.packageName && grant.certificate == principal.certificate && scope in grant.scopes
 }
@@ -102,21 +105,32 @@ class GrantStore(private val context: Context) {
     fun pendingRequest(token: String): GrantRequest? = pending[token]?.takeIf { it.expiresAt > SystemClock.elapsedRealtime() }
 
     @Synchronized
-    fun decide(token: String, allow: Boolean) {
-        val request = pending.remove(token) ?: throw SecurityException("Authorization request expired")
-        if (request.expiresAt <= SystemClock.elapsedRealtime()) throw SecurityException("Authorization request expired")
-        if (!allow) return
+    fun setRequestedScope(token: String, scope: String, enabled: Boolean) {
+        val request = pendingRequest(token) ?: throw SecurityException("Authorization request expired")
+        if (scope !in request.scopes) throw SecurityException("Permission was not requested")
         val current = principal(request.principal.uid)
         if (current.packageName != request.principal.packageName || current.certificate != request.principal.certificate) throw SecurityException("Application changed during authorization")
-        val previous = mutableGrants.value.firstOrNull { it.packageName == current.packageName && it.certificate == current.certificate }
-        val grant = AppGrant(current.packageName, current.label, current.certificate, request.scopes + (previous?.scopes ?: emptySet()))
-        save(mutableGrants.value.filterNot { it.packageName == current.packageName } + grant)
+        setScope(current, scope, enabled)
     }
 
     @Synchronized
-    fun revoke(packageName: String) {
-        pending.entries.removeAll { it.value.principal.packageName == packageName }
-        save(mutableGrants.value.filterNot { it.packageName == packageName })
+    fun setManagedScope(grant: AppGrant, scope: String, enabled: Boolean) {
+        if (scope !in GrantPolicy.scopes) throw SecurityException("Unknown permission")
+        val current = principal(context.packageManager.getPackageUid(grant.packageName, 0))
+        if (current.packageName != grant.packageName || current.certificate != grant.certificate) throw SecurityException("Application changed during authorization")
+        if (mutableGrants.value.none { it.packageName == grant.packageName && it.certificate == grant.certificate }) {
+            throw SecurityException("Application is not managed")
+        }
+        setScope(current, scope, enabled)
+    }
+
+    private fun setScope(current: AppPrincipal, scope: String, enabled: Boolean) {
+        val previous = mutableGrants.value.firstOrNull { it.packageName == current.packageName && it.certificate == current.certificate }
+        val before = previous?.scopes.orEmpty()
+        val after = GrantPolicy.withScope(before, scope, enabled)
+        if (before == after) return
+        val grant = AppGrant(current.packageName, current.label, current.certificate, after)
+        save(mutableGrants.value.filterNot { it.packageName == current.packageName } + grant)
     }
 
     private fun save(items: List<AppGrant>) {
@@ -132,6 +146,6 @@ class GrantStore(private val context: Context) {
             val item = array.getJSONObject(index)
             val scopes = item.getJSONArray("scopes")
             AppGrant(item.getString("package"), item.getString("label"), item.getString("certificate"), (0 until scopes.length()).map { scopes.getString(it) }.toSet())
-        }.filter { it.scopes.isNotEmpty() && GrantPolicy.scopes.containsAll(it.scopes) }
+        }.filter { GrantPolicy.scopes.containsAll(it.scopes) }
     } catch (_: Exception) { emptyList() }
 }

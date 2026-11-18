@@ -55,6 +55,18 @@ data class RingSnapshot(
     val firmwareProgress: Int? = null,
 )
 
+class RingIdentityMismatch : IOException("The connected ring does not match the saved binding")
+
+fun ringIdentity(info: DeviceInfo, address: String): String = when {
+    info.cpuid.isNotBlank() -> "cpu:${info.cpuid}"
+    info.sn.isNotBlank() -> "serial:${info.sn}"
+    else -> "address:$address"
+}
+
+internal fun verifyBoundRing(info: DeviceInfo, address: String, expectedIdentity: String?) {
+    if (expectedIdentity != null && ringIdentity(info, address) != expectedIdentity) throw RingIdentityMismatch()
+}
+
 class RingController(context: Context) : AutoCloseable {
     private val context = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -132,17 +144,19 @@ class RingController(context: Context) : AutoCloseable {
         mutableState.update { if (it.phase == "scanning") it.copy(phase = "disconnected") else it }
     }
 
-    suspend fun connect(address: String) = operations.withLock {
+    suspend fun connect(address: String, expectedIdentity: String? = null, rememberedName: String? = null) = operations.withLock {
         check(!closed) { "Ring controller is closed" }
         require(BluetoothAdapter.checkBluetoothAddress(address)) { "Invalid Bluetooth address" }
         stopScan()
         disconnectInternal()
-        val name = mutableScanResults.value.firstOrNull { it.address == address }?.name ?: "OpenZilo Ring"
+        val name = rememberedName ?: mutableScanResults.value.firstOrNull { it.address == address }?.name ?: "OpenZilo Ring"
         mutableState.value = RingSnapshot(phase = "connecting", deviceName = name, address = address)
         try {
             val active = newSession(address)
             val info = active.info()
+            verifyBoundRing(info, address, expectedIdentity)
             val capabilities = active.negotiate()
+            check(connection === active) { "Ring disconnected during initialization" }
             mutableState.value = RingSnapshot("connected", name, address, info, capabilities)
         } catch (error: Throwable) {
             disconnectInternal()

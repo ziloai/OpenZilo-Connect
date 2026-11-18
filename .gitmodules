@@ -1,6 +1,3 @@
-[submodule "vendor/miuix"]
-	path = vendor/miuix
-	url = https://github.com/compose-miuix-ui/miuix.git
 [submodule "vendor/libopenzilo"]
 	path = vendor/libopenzilo
 	url = https://github.com/ziloai/libopenzilo.git

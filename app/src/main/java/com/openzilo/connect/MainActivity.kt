@@ -80,12 +80,23 @@ class MainActivity : AppCompatActivity() {
             MiuixTheme(controller = theme) { ConnectScreen(host, this) }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        val host = application as ConnectApplication
+        if (host.binding.value?.autoConnect == true &&
+            (Build.VERSION.SDK_INT < 31 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED)
+        ) {
+            runCatching { startForegroundService(ConnectService.resumeIntent(this)) }
+        }
+    }
 }
 
 @Composable
 private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
     val controller = host.controller
     val ring by controller.state.collectAsStateWithLifecycle()
+    val binding by host.binding.collectAsStateWithLifecycle()
     val devices by controller.scanResults.collectAsStateWithLifecycle()
     val grants by host.grants.grants.collectAsStateWithLifecycle()
     val upgrading by host.upgrading.collectAsStateWithLifecycle()
@@ -96,8 +107,6 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
     val firmwareState by host.firmwareCatalog.state.collectAsStateWithLifecycle()
     var installCandidate by remember { mutableStateOf<PreparedFirmware?>(null) }
     var firmwareNotice by rememberSaveable { mutableStateOf<Int?>(null) }
-    var selectedGrantPackage by rememberSaveable { mutableStateOf<String?>(null) }
-    val selectedGrant = grants.firstOrNull { it.packageName == selectedGrantPackage }
     val scanning = ring.phase == "scanning"
     val busy = upgrading || ring.phase in setOf("connecting", "upgrading", "reconnecting")
     val pageTitles = listOf(stringResource(R.string.ui_tab_ring), stringResource(R.string.ui_tab_firmware), stringResource(R.string.ui_tab_apps))
@@ -202,8 +211,10 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
                     0 -> {
                         Card {
                             BasicComponent(
-                                title = ring.info?.model ?: stringResource(R.string.ui_your_ring),
-                                summary = phaseLabel(ring.phase),
+                                title = ring.info?.model ?: binding?.name ?: stringResource(R.string.ui_your_ring),
+                                summary = if (binding?.autoConnect == true && ring.phase == "disconnected") {
+                                    stringResource(R.string.ui_waiting_for_ring)
+                                } else phaseLabel(ring.phase),
                             )
                             if (scanning || busy) LinearProgressIndicator(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
                             if (ring.phase != "connected") {
@@ -221,6 +232,14 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
                                         try { activity.startService(ConnectService.disconnectIntent(activity)) }
                                         catch (error: Throwable) { reportFailure(R.string.ui_disconnect_failed, error) }
                                     }, Modifier.weight(1f), enabled = !busy)
+                                } else if (binding != null) {
+                                    val autoConnect = binding?.autoConnect == true
+                                    ConnectButton(stringResource(if (autoConnect) R.string.ui_pause_reconnect else R.string.ui_reconnect), {
+                                        try {
+                                            if (autoConnect) activity.startService(ConnectService.disconnectIntent(activity))
+                                            else activity.startForegroundService(ConnectService.resumeIntent(activity))
+                                        } catch (error: Throwable) { reportFailure(R.string.ui_connection_failed, error) }
+                                    }, Modifier.fillMaxWidth(), enabled = !upgrading, primary = !autoConnect)
                                 } else {
                                     ConnectButton(stringResource(if (scanning || scanStarting) R.string.ui_scanning else R.string.ui_find_connect), {
                                         val permissions = if (Build.VERSION.SDK_INT >= 31) mutableListOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT) else mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -230,7 +249,19 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
                                 }
                             }
                         }
-                        if (devices.isNotEmpty() && ring.phase != "connected") {
+                        if (binding != null) {
+                            Card {
+                                ArrowPreference(
+                                    title = stringResource(R.string.ui_forget_ring),
+                                    enabled = !upgrading,
+                                    onClick = {
+                                        try { activity.startService(ConnectService.forgetIntent(activity)) }
+                                        catch (error: Throwable) { reportFailure(R.string.ui_disconnect_failed, error) }
+                                    },
+                                )
+                            }
+                        }
+                        if (binding == null && devices.isNotEmpty() && ring.phase != "connected") {
                             SmallTitle(stringResource(R.string.ui_nearby_rings))
                             Card {
                                 devices.forEach { candidate ->
@@ -287,7 +318,7 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
                                 Card {
                                     BasicComponent(
                                         title = grant.label,
-                                        summary = stringResource(R.string.ui_authorized),
+                                        summary = pluralStringResource(R.plurals.ui_permission_count, grant.scopes.size, grant.scopes.size),
                                         startAction = {
                                             if (appIcon != null) Icon(appIcon, null, Modifier.size(44.dp), tint = Color.Unspecified)
                                             else Icon(MiuixIcons.Glass.ThirdPartyAppsData, null, Modifier.size(44.dp))
@@ -296,8 +327,10 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
                                     )
                                     ArrowPreference(
                                         title = stringResource(R.string.ui_manage_permissions),
-                                        summary = pluralStringResource(R.plurals.ui_permission_count, grant.scopes.size, grant.scopes.size),
-                                        onClick = { selectedGrantPackage = grant.packageName },
+                                        onClick = {
+                                            activity.startActivity(android.content.Intent(activity, GrantActivity::class.java)
+                                                .putExtra(GrantActivity.EXTRA_PACKAGE, grant.packageName))
+                                        },
                                     )
                                 }
                             }
@@ -318,35 +351,6 @@ private fun ConnectScreen(host: ConnectApplication, activity: MainActivity) {
                 }
                 (notice ?: ring.message)?.takeIf { page != 1 && it.isNotBlank() }?.let {
                     Card { BasicComponent(title = it) }
-                }
-            }
-        }
-        GlassDialog(
-            show = selectedGrant != null,
-            onDismissRequest = { selectedGrantPackage = null },
-            backdrop = dialogBackdrop,
-            title = selectedGrant?.label,
-            summary = selectedGrant?.packageName,
-        ) {
-            selectedGrant?.let { grant ->
-                Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
-                    grant.scopes.sorted().forEach { permission ->
-                        BasicComponent(
-                            title = scopeLabel(permission),
-                            startAction = { Icon(scopeIcon(permission), null, Modifier.size(24.dp), tint = MiuixTheme.colorScheme.primary) },
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GlassDialogButton(onClick = { selectedGrantPackage = null }, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(android.R.string.cancel), style = MiuixTheme.textStyles.button)
-                    }
-                    GlassDialogButton(onClick = {
-                        host.grants.revoke(grant.packageName)
-                        selectedGrantPackage = null
-                    }, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ui_revoke_access), style = MiuixTheme.textStyles.button)
-                    }
                 }
             }
         }

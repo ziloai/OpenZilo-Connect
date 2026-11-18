@@ -3,9 +3,8 @@
     <string name="auth_app_request">%1$s wants to use your ring</string>
     <string name="auth_certificate">Application signing certificate SHA-256\n%1$s</string>
     <string name="auth_bound_identity">Access is bound to this app and its signing certificate.</string>
-    <string name="auth_privacy_warning">Access can be revoked in Apps. Deleted recordings cannot be recovered.</string>
-    <string name="auth_deny">Deny</string>
-    <string name="auth_allow">Allow these capabilities</string>
+    <string name="auth_privacy_warning">Changes take effect immediately. You can review them in Apps. Deleted recordings cannot be recovered.</string>
+    <string name="auth_back">Back</string>
     <string name="auth_failed">Authorization failed or expired. Ask the application to request access again.</string>
     <string name="auth_scope_info">Device information</string>
     <string name="auth_scope_recording">Recording control</string>

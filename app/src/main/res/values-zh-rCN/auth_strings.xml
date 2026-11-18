@@ -3,9 +3,8 @@
     <string name="auth_app_request">%1$s 想使用你的戒指</string>
     <string name="auth_certificate">应用签名 SHA-256\n%1$s</string>
     <string name="auth_bound_identity">授权绑定此应用及其签名证书。</string>
-    <string name="auth_privacy_warning">可在应用页撤销授权。删除录音不可恢复。</string>
-    <string name="auth_deny">拒绝</string>
-    <string name="auth_allow">允许这些能力</string>
+    <string name="auth_privacy_warning">开关即时生效，可在「应用」页查看和修改。删除录音不可恢复。</string>
+    <string name="auth_back">返回</string>
     <string name="auth_failed">授权失败或已过期，请让应用重新申请授权。</string>
     <string name="auth_scope_info">设备信息</string>
     <string name="auth_scope_recording">录音控制</string>

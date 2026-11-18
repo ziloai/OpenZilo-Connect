@@ -1,0 +1,11 @@
+OpenZilo Connect
+
+OpenZilo Connect and libopenzilo are licensed under the Mozilla Public License 2.0.
+The corresponding source for Connect is available at:
+https://github.com/ziloai/OpenZilo-Connect
+Use the revision associated with the build or release. The pinned libopenzilo source is listed in that revision's submodule tree:
+https://github.com/ziloai/libopenzilo
+
+miuix is licensed under the Apache License 2.0:
+https://github.com/compose-miuix-ui/miuix
+Connect uses unmodified miuix artifacts from Maven Central.

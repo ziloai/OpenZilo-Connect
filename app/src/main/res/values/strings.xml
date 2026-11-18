@@ -11,6 +11,10 @@
     <string name="ui_refresh">Refresh</string>
     <string name="ui_refresh_failed">Could not refresh device information.</string>
     <string name="ui_disconnect">Disconnect</string>
+    <string name="ui_waiting_for_ring">Waiting for your ring</string>
+    <string name="ui_pause_reconnect">Pause auto-connect</string>
+    <string name="ui_reconnect">Reconnect</string>
+    <string name="ui_forget_ring">Forget ring</string>
     <string name="ui_disconnect_failed">Could not disconnect.</string>
     <string name="ui_scanning">Scanning…</string>
     <string name="ui_find_connect">Find ring</string>
@@ -76,7 +80,7 @@
     <string name="ui_authorization_checks">App identity</string>
     <string name="ui_package_and_certificate">Package and certificate</string>
     <string name="ui_authorized">Authorized</string>
-    <string name="ui_authorized_apps">Authorized apps</string>
+    <string name="ui_authorized_apps">App permissions</string>
     <string name="ui_no_authorized_apps">No authorized apps</string>
     <string name="ui_authorization_explanation">Apps appear here after you grant access.</string>
     <string name="ui_list_separator">", "</string>

@@ -20,13 +20,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.glass.GlassDialogButton
@@ -45,36 +47,36 @@ class GrantActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         if (Build.VERSION.SDK_INT >= 31) window.setHideOverlayWindows(true)
         val store = (application as ConnectApplication).grants
-        val token = intent.getStringExtra(EXTRA_TOKEN).orEmpty()
-        val request = store.pendingRequest(token)
-        if (request == null) { finish(); return }
+        val token = intent.getStringExtra(EXTRA_TOKEN)
+        val request = token?.let(store::pendingRequest)
+        val managed = if (token == null) store.grants.value.firstOrNull {
+            it.packageName == intent.getStringExtra(EXTRA_PACKAGE)
+        } else null
+        val packageName = request?.principal?.packageName ?: managed?.packageName ?: run { finish(); return }
+        val label = request?.principal?.label ?: checkNotNull(managed).label
+        val certificate = request?.principal?.certificate ?: checkNotNull(managed).certificate
+        val scopes = request?.scopes ?: GrantPolicy.scopes
         setContent {
             val theme = remember { ThemeController(ColorSchemeMode.System) }
             MiuixTheme(controller = theme) {
                 var error by remember { mutableStateOf<String?>(null) }
                 var showIdentity by remember { mutableStateOf(false) }
-                val appIcon = remember(request.principal.packageName) {
-                    try { packageManager.getApplicationIcon(request.principal.packageName).toBitmap(96, 96).asImageBitmap() }
+                val grants by store.grants.collectAsStateWithLifecycle()
+                val grantedScopes = grants.firstOrNull { it.packageName == packageName && it.certificate == certificate }?.scopes.orEmpty()
+                val appIcon = remember(packageName) {
+                    try { packageManager.getApplicationIcon(packageName).toBitmap(96, 96).asImageBitmap() }
                     catch (_: PackageManager.NameNotFoundException) { null }
                 }
-                Scaffold(
-                    topBar = { TopAppBar(title = stringResource(R.string.auth_title)) },
-                    bottomBar = {
-                        Row(
-                            Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            TextButton(stringResource(R.string.auth_deny), onClick = {
-                                runCatching { store.decide(token, false) }
-                                finish()
-                            }, modifier = Modifier.weight(1f), minHeight = 48.dp)
-                            TextButton(stringResource(R.string.auth_allow), onClick = {
-                                try { store.decide(token, true); finish() }
-                                catch (_: Exception) { error = getString(R.string.auth_failed) }
-                            }, modifier = Modifier.weight(1f), minHeight = 48.dp, colors = ButtonDefaults.textButtonColorsPrimary())
-                        }
-                    },
-                ) { padding ->
+                Scaffold(topBar = {
+                    TopAppBar(
+                        title = stringResource(R.string.auth_title),
+                        navigationIcon = {
+                            IconButton(onClick = { finish() }) {
+                                Icon(MiuixIcons.Glass.ChevronBackward, stringResource(R.string.auth_back))
+                            }
+                        },
+                    )
+                }) { padding ->
                     Column(
                         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                             .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
@@ -83,8 +85,8 @@ class GrantActivity : AppCompatActivity() {
                     ) {
                         Card {
                             BasicComponent(
-                                title = request.principal.label,
-                                summary = request.principal.packageName,
+                                title = label,
+                                summary = packageName,
                                 startAction = {
                                     if (appIcon != null) Icon(appIcon, null, Modifier.size(48.dp), tint = Color.Unspecified)
                                     else Icon(MiuixIcons.Glass.ThirdPartyAppsData, null, Modifier.size(48.dp))
@@ -97,10 +99,18 @@ class GrantActivity : AppCompatActivity() {
                                 onClick = { showIdentity = true },
                             )
                         }
-                        SmallTitle(stringResource(R.string.ui_requested_permissions))
+                        SmallTitle(stringResource(if (request != null) R.string.ui_requested_permissions else R.string.ui_manage_permissions))
                         Card {
-                            request.scopes.sorted().forEach { scope ->
-                                BasicComponent(
+                            scopes.sorted().forEach { scope ->
+                                SwitchPreference(
+                                    checked = scope in grantedScopes,
+                                    onCheckedChange = { enabled ->
+                                        try {
+                                            if (token != null) store.setRequestedScope(token, scope, enabled)
+                                            else store.setManagedScope(checkNotNull(managed), scope, enabled)
+                                            error = null
+                                        } catch (_: Exception) { error = getString(R.string.auth_failed) }
+                                    },
                                     title = scopeLabel(this@GrantActivity, scope),
                                     summary = scopeDescription(this@GrantActivity, scope),
                                     startAction = { Icon(scopeIcon(scope), null, Modifier.size(28.dp), tint = MiuixTheme.colorScheme.primary) },
@@ -123,8 +133,8 @@ class GrantActivity : AppCompatActivity() {
                         summary = stringResource(R.string.auth_bound_identity),
                     ) {
                         Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(request.principal.packageName, style = MiuixTheme.textStyles.body2)
-                            Text(stringResource(R.string.auth_certificate, request.principal.certificate), style = MiuixTheme.textStyles.footnote1)
+                            Text(packageName, style = MiuixTheme.textStyles.body2)
+                            Text(stringResource(R.string.auth_certificate, certificate), style = MiuixTheme.textStyles.footnote1)
                         }
                         GlassDialogButton(onClick = { showIdentity = false }, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(android.R.string.ok), style = MiuixTheme.textStyles.button)
@@ -142,6 +152,7 @@ class GrantActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TOKEN = "requestToken"
+        internal const val EXTRA_PACKAGE = "managedPackage"
         fun scopeLabel(context: Context, scope: String): String = context.getString(when (scope) {
             "info" -> R.string.auth_scope_info
             "recording" -> R.string.auth_scope_recording

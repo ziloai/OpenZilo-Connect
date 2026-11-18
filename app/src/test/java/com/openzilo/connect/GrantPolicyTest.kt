@@ -11,6 +11,14 @@ class GrantPolicyTest {
         assertFalse(GrantPolicy.matches(grant, AppPrincipal(1001, "creative.app", "Creative", "cert-two"), "sensors"))
         assertFalse(GrantPolicy.matches(grant, AppPrincipal(1001, "creative.app", "Creative", "cert-one"), "firmware"))
     }
+    @Test fun revokingAudioLeavesDeviceInfoAllowed() {
+        val app = AppPrincipal(1001, "creative.app", "Creative", "cert-one")
+        val grant = AppGrant(app.packageName, app.label, app.certificate, setOf("info", "audio"))
+        val changed = grant.copy(scopes = GrantPolicy.withScope(grant.scopes, "audio", false))
+        assertFalse(GrantPolicy.matches(changed, app, GrantPolicy.topicScope("live")))
+        assertTrue(GrantPolicy.matches(changed, app, GrantPolicy.operationScope("system.info")))
+        assertTrue(GrantPolicy.withScope(changed.scopes, "info", false).isEmpty())
+    }
     @Test fun allOperationsAreExplicitlyScoped() {
         assertEquals(21, GrantPolicy.operationScopes.size)
         assertEquals("firmware", GrantPolicy.operationScope("firmware.upgrade"))

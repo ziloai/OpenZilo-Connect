@@ -16,6 +16,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ConnectionLifecycleTest {
+    @Test fun boundRingRejectsDifferentHardwareAtTheSavedAddress() {
+        val original = com.zilo.libopenzilo.DeviceInfo(
+            firmwareVersion = "test", model = "Test Ring", systemTime = 0u,
+            audioStorageTotal = 0u, audioStorageAvailable = 0u, batteryPercent = 100u,
+            batteryCharging = false, sn = "sample-serial", cpuid = "sample-cpu",
+        )
+        val address = "00:00:00:00:00:01"
+        val binding = ringIdentity(original, address)
+        verifyBoundRing(original.copy(firmwareVersion = "updated"), address, binding)
+        org.junit.Assert.assertThrows(RingIdentityMismatch::class.java) {
+            verifyBoundRing(original.copy(cpuid = "different-cpu"), address, binding)
+        }
+    }
+
     @Test fun closeBeforeConnectionReturnsRejectsLatePublication() {
         val slot = ConnectionSlot<Any>()
         assertNull(slot.close())
