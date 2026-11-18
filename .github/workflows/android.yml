@@ -18,14 +18,10 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    env:
-      CARGO_BUILD_JOBS: '2'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - name: Check out pinned submodules
-        run: git submodule update --init --recursive
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -33,21 +29,8 @@ jobs:
       - name: Install Android SDK
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
-          packages: platform-tools platforms;android-37.0 platforms;android-37.2 build-tools;37.0.0 ndk;28.2.13676358
-      - name: Install pinned Rust toolchain
-        run: rustup show
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'vendor/libopenzilo/Cargo.lock') }}
+          packages: platform-tools platforms;android-37.0 platforms;android-37.2 build-tools;37.0.0
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
-      - name: Validate portable core
-        run: |
-          cargo fmt --manifest-path vendor/libopenzilo/Cargo.toml --check
-          cargo clippy --manifest-path vendor/libopenzilo/Cargo.toml --locked --all-targets -- -D warnings
-          cargo test --manifest-path vendor/libopenzilo/Cargo.toml --locked
       - name: Test, lint and package
         run: ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' testDebugUnitTest lintDebug assembleDebug bundleRelease
       - name: Upload packages and reports

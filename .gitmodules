@@ -1,3 +1,0 @@
-[submodule "vendor/libopenzilo"]
-	path = vendor/libopenzilo
-	url = https://github.com/ziloai/libopenzilo.git

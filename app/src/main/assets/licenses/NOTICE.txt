@@ -3,8 +3,8 @@ OpenZilo Connect
 OpenZilo Connect and libopenzilo are licensed under the Mozilla Public License 2.0.
 The corresponding source for Connect is available at:
 https://github.com/ziloai/OpenZilo-Connect
-Use the revision associated with the build or release. The pinned libopenzilo source is listed in that revision's submodule tree:
-https://github.com/ziloai/libopenzilo
+Use the revision associated with the build or release. The Android AAR's corresponding libopenzilo source is tagged at:
+https://github.com/ziloai/libopenzilo/tree/android-v0.1.0
 
 miuix is licensed under the Apache License 2.0:
 https://github.com/compose-miuix-ui/miuix

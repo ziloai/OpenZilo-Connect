@@ -4,12 +4,12 @@ OpenZilo Connect is the Android companion and connection broker for OpenZilo rin
 
 ## Build from source
 
-On Linux or macOS, use JDK 21, Git, Android command-line tools, and rustup. Set `ANDROID_HOME` to the Android SDK path. The Gradle wrapper builds the app, runs Cargo and UniFFI, and downloads miuix from Maven Central.
+Use JDK 21, Git, and Android command-line tools. Set `ANDROID_HOME` to the Android SDK path. The Gradle wrapper builds the app and downloads a fixed libopenzilo Android AAR from GitHub Releases and miuix from Maven Central. No submodules, Rust toolchain, or NDK installation is needed.
 
 ```bash
-git clone --recurse-submodules https://github.com/ziloai/OpenZilo-Connect.git
+git clone https://github.com/ziloai/OpenZilo-Connect.git
 cd OpenZilo-Connect
-sdkmanager 'platforms;android-37.0' 'platforms;android-37.2' 'build-tools;37.0.0' 'ndk;28.2.13676358'
+sdkmanager 'platforms;android-37.0' 'platforms;android-37.2' 'build-tools;37.0.0'
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
@@ -24,8 +24,26 @@ The [`connect-api`](connect-api) library contains the Binder client and AIDL con
 3. Use `requestAuthorization()` for the scopes needed by your app and open the returned authorization intent with user interaction. Check authorization before invoking protected operations. Devices on Android 12 or newer may require the user to grant Nearby devices permission to Connect itself.
 4. Compare the service’s `apiVersion` with `ConnectClient.API_VERSION`. Subscribe to events before enabling live audio, and close the client when it is no longer needed.
 
-There is no published Maven artifact or desktop/iOS host in this repository yet.
+The Android client AAR is distributed via [GitHub Releases](https://github.com/ziloai/OpenZilo-Connect/releases). To resolve it without a source checkout or token, add this to the repositories in your `settings.gradle.kts`:
+
+```kotlin
+ivy {
+    url = uri("https://github.com/ziloai/OpenZilo-Connect/releases/download")
+    patternLayout { artifact("android-v[revision]/[artifact]-[revision].[ext]") }
+    metadataSources { artifact() }
+    content { includeModule("io.github.ziloai", "connect-api") }
+}
+```
+
+In your Android module's dependencies, add:
+
+```kotlin
+implementation("io.github.ziloai:connect-api:0.1.0@aar")
+implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+```
+
+Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; Connect and Input use Kotlin 2.4.21. The AAR is not an installable app. Install a compatible version of Connect on the device. There is no published Maven Central artifact or desktop/iOS host in this repository yet.
 
 ## License
 
-Connect is licensed under [MPL-2.0](LICENSE). It builds against the pinned [libopenzilo](https://github.com/ziloai/libopenzilo) source (MPL-2.0) and published [miuix](https://github.com/compose-miuix-ui/miuix) packages (Apache-2.0). License copies and corresponding-source information are bundled in `assets/licenses/` inside the APK.
+Connect is licensed under [MPL-2.0](LICENSE). It builds against a pinned [libopenzilo Android release](https://github.com/ziloai/libopenzilo/releases) (MPL-2.0) and published [miuix](https://github.com/compose-miuix-ui/miuix) packages (Apache-2.0). License copies and corresponding-source information are bundled in `assets/licenses/` inside the APK.

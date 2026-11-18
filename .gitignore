@@ -7,6 +7,7 @@ local.properties
 *.pem
 captures/
 /vendor/miuix/
+/vendor/libopenzilo/
 **/target/
 __pycache__/
 .env
