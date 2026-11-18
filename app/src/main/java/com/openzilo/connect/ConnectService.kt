@@ -13,9 +13,11 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import com.openzilo.connect.api.ConnectClient
 import com.openzilo.connect.api.IConnectCallback
 import com.openzilo.connect.api.IConnectService
 import com.zilo.libopenzilo.DeviceRequest
+import com.zilo.libopenzilo.LiveStreamEvent
 import com.zilo.libopenzilo.RecordingConfig
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -31,6 +33,31 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+
+private fun LiveStreamEvent.toBundle(): Bundle = Bundle().apply {
+    when (val event = this@toBundle) {
+        is LiveStreamEvent.Started -> {
+            putString("type", "started")
+            putLong("sessionId", event.value.sessionId.toLong())
+            putLong("recordTime", event.value.recordTime.toLong())
+            putInt("sampleRate", event.value.sampleRate.toInt())
+            putInt("channels", event.value.channels.toInt())
+            putString("codec", "opus")
+        }
+        is LiveStreamEvent.Frame -> {
+            putString("type", "frame")
+            putLong("sessionId", event.value.sessionId.toLong())
+            putLong("sequence", event.value.sequence.toLong())
+            putByteArray("data", event.value.data)
+        }
+        is LiveStreamEvent.Ended -> {
+            putString("type", "ended")
+            putLong("sessionId", event.value.sessionId.toLong())
+            putLong("byteCount", event.value.sentBytes.toLong())
+        }
+        LiveStreamEvent.Interrupted -> putString("type", "interrupted")
+    }
+}
 
 class ConnectService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -61,14 +88,20 @@ class ConnectService : Service() {
             NotificationChannel(CHANNEL, localizedContext.getString(R.string.auth_notification_channel), NotificationManager.IMPORTANCE_LOW)
         )
         scope.launch {
-            host.controller.events.collect { packet ->
+            host.controller.events.collect { ringEvent ->
+                if (ringEvent.epoch != host.controller.connectionEpoch) return@collect
+                val packet = ringEvent.packet
                 val topic = GrantPolicy.topic(packet.command.toInt()) ?: return@collect
                 if (packet.body.size > 5120) return@collect
-                val event = Bundle().apply {
-                    putInt("apiVersion", 1)
-                    putInt("command", packet.command.toInt())
-                    putByteArray("body", packet.body)
+                val event = if (topic == "live") {
+                    ringEvent.live?.toBundle() ?: return@collect
+                } else {
+                    Bundle().apply {
+                        putInt("command", packet.command.toInt())
+                        putByteArray("body", packet.body)
+                    }
                 }
+                event.putInt("apiVersion", ConnectClient.API_VERSION)
                 subscriptions.values.toList().forEach { subscription ->
                     if (topic in subscription.topics && ownsEvent(topic, subscription.principal)) {
                         try {
@@ -152,7 +185,7 @@ class ConnectService : Service() {
                         host.grants.requireAccess(principal, permission)
                         perform(operation, copied, principal, callbackBinder, requestId).apply {
                             putBoolean("ok", true)
-                            putInt("apiVersion", 1)
+                            putInt("apiVersion", ConnectClient.API_VERSION)
                         }
                     }
                 } catch (failure: Exception) {
@@ -163,7 +196,7 @@ class ConnectService : Service() {
                     }
                     Bundle().apply {
                         putBoolean("ok", false)
-                        putInt("apiVersion", 1)
+                        putInt("apiVersion", ConnectClient.API_VERSION)
                         putString("error", when (failure) {
                             is SecurityException -> "permission_denied"
                             is DeviceOperationException -> "device_rejected"
@@ -279,7 +312,7 @@ class ConnectService : Service() {
 
     private fun status(): Bundle = Bundle().apply {
         val value = host.controller.state.value
-        putInt("apiVersion", 1)
+        putInt("apiVersion", ConnectClient.API_VERSION)
         putString("phase", value.phase)
         putString("deviceName", value.deviceName)
         putString("message", value.message)

@@ -26,7 +26,8 @@ import kotlinx.coroutines.withTimeout
 internal class RingSession(
     context: Context,
     peer: BluetoothDevice,
-    private val outgoingEvents: MutableSharedFlow<Packet>,
+    private val outgoingEvents: MutableSharedFlow<RingEvent>,
+    private val epoch: Long,
     private val onFailure: (RingSession, Throwable) -> Unit,
 ) : AutoCloseable {
     private val dispatcher = Dispatchers.IO.limitedParallelism(1)
@@ -36,7 +37,7 @@ internal class RingSession(
     private val ended = AtomicBoolean(false)
     private val pending = ConcurrentHashMap<ULong, CompletableDeferred<Packet>>()
     private val input = Channel<SessionInput>(256)
-    private val eventQueue = Channel<Packet>(256)
+    private val eventQueue = Channel<RingEvent>(256)
     val otaPackets = Channel<Packet>(32)
     private var otaOwner: String? = null
     private val transport = GattTransport(context, peer,
@@ -116,20 +117,21 @@ internal class RingSession(
     suspend fun info(): DeviceInfo = parseSystemInfo(request(DeviceRequest.SystemInfo).body)
 
     suspend fun negotiate(): Capabilities? = withContext(dispatcher) {
-        val before = info()
         try {
-            val caps = parseCapabilities(request(DeviceRequest.Capabilities, 3_000).body)
-            check(!ended.get()) { "Ring disconnected during capability discovery" }
-            engine.setCapabilities(before, caps)
-            caps
-        } catch (error: Throwable) {
-            if (error is CancellationException && error !is kotlinx.coroutines.TimeoutCancellationException) throw error
-            val missing = error is kotlinx.coroutines.TimeoutCancellationException ||
-                error is CoreException.Timeout || (error is CoreException.Device && error.code.toInt() == 5) ||
-                (error is RingRequestException && (error.code == ErrorCode.TIMEOUT || error.deviceCode == 5))
-            if (!missing || ended.get()) throw error
-            engine.useLegacyProfile(before, "Capability query unavailable; exact verified legacy profiles only").capabilities
+            val reply = request(DeviceRequest.Capabilities, 3_000)
+            parseSuccess(reply.body.copyOfRange(0, 2))
+        } catch (error: RingRequestException) {
+            if (ended.get()) throw error
+            return@withContext (engine.finishDiscovery(generation, error.code, error.deviceCode?.toUShort()) ?: throw error).capabilities
+        } catch (error: CoreException.Device) {
+            if (ended.get()) throw error
+            return@withContext (engine.finishDiscovery(generation, ErrorCode.DEVICE_REJECTED, error.code) ?: throw error).capabilities
+        } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
+            if (ended.get()) throw error
+            return@withContext (engine.finishDiscovery(generation, ErrorCode.TIMEOUT, null) ?: throw error).capabilities
         }
+        check(!ended.get()) { "Ring disconnected during capability discovery" }
+        checkNotNull(engine.finishDiscovery(generation, null, null)).capabilities
     }
 
     suspend fun acquireFirmware(owner: String) = withContext(dispatcher) {
@@ -158,20 +160,18 @@ internal class RingSession(
                 if (otaOwner != null && packet.command.toInt() in setOf(1105, 2001, 2201)) {
                     if (otaPackets.trySend(packet).isFailure) { fail(IOException("Firmware response queue overflow")); return }
                 }
-                if (packet.command.toInt() == 0x401) {
-                    val receivedAt = (System.currentTimeMillis() / 1000).toUInt()
+                engine.captureTimeSync(packet, generation, wallTime())?.let { request ->
                     scope.launch {
                         try {
-                            val requestedAt = parseTimeRequest(packet.body)
                             transport.sendPrepared {
                                 check(!ended.get()) { "Ring disconnected before time reply" }
-                                val reply = prepareRequest(DeviceRequest.TimeReply(requestedAt, receivedAt, (System.currentTimeMillis() / 1000).toUInt()))
-                                engine.prepareSend(reply.command, reply.body, null)
+                                engine.prepareTimeSyncReply(request, wallTime())
                             }
                         } catch (error: Throwable) { fail(error) }
                     }
                 }
-                if (eventQueue.trySend(packet).isFailure) { fail(IOException("Ring event consumers are too slow")); return }
+                val event = RingEvent(epoch, packet, engine.acceptLiveEvent(packet, generation))
+                if (eventQueue.trySend(event).isFailure) { fail(IOException("Ring event consumers are too slow")); return }
             }
         }
     }
@@ -199,7 +199,10 @@ internal class RingSession(
         }
     }
 
-    companion object { private fun now(): ULong = SystemClock.elapsedRealtime().toULong() }
+    companion object {
+        private fun now(): ULong = SystemClock.elapsedRealtime().toULong()
+        private fun wallTime(): UInt = (System.currentTimeMillis() / 1000).toUInt()
+    }
 }
 
 class RingRequestException(

@@ -28,7 +28,33 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
-data class ConnectEvent(val topic: String, val data: Bundle)
+data class ConnectEvent(val topic: String, val data: Bundle) {
+    fun liveAudio(): LiveAudioEvent? {
+        if (topic != "live") return null
+        check(data.getInt("apiVersion") == ConnectClient.API_VERSION) { "Unsupported Connect API version" }
+        fun sessionId() = data.getLong("sessionId").also { require(it > 0) }
+        return when (data.getString("type")) {
+            "started" -> LiveAudioEvent.Started(
+                sessionId(), data.getInt("sampleRate").also { require(it == 16000) },
+                data.getInt("channels").also { require(it in 1..2) },
+            )
+            "frame" -> LiveAudioEvent.Frame(
+                sessionId(), data.getLong("sequence", -1).also { require(it >= 0) },
+                requireNotNull(data.getByteArray("data")).also { require(it.size in 1..100) },
+            )
+            "ended" -> LiveAudioEvent.Ended(sessionId(), data.getLong("byteCount", -1).also { require(it >= 0) })
+            "interrupted" -> LiveAudioEvent.Interrupted
+            else -> error("Unknown live audio event")
+        }
+    }
+}
+
+sealed interface LiveAudioEvent {
+    data class Started(val sessionId: Long, val sampleRate: Int, val channels: Int) : LiveAudioEvent
+    data class Frame(val sessionId: Long, val sequence: Long, val data: ByteArray) : LiveAudioEvent
+    data class Ended(val sessionId: Long, val byteCount: Long) : LiveAudioEvent
+    data object Interrupted : LiveAudioEvent
+}
 
 /** One client owns one bounded event consumer; no Bluetooth permission is required. */
 class ConnectClient(context: Context) : AutoCloseable {
@@ -173,7 +199,7 @@ class ConnectClient(context: Context) : AutoCloseable {
     }
 
     companion object {
-        const val API_VERSION = 1
+        const val API_VERSION = 2
         const val HOST_PACKAGE = "com.openzilo.connect"
         const val HOST_SERVICE = "com.openzilo.connect.ConnectService"
     }

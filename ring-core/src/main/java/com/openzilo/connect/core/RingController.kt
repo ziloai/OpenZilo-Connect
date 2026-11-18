@@ -43,6 +43,8 @@ fun legacyFirmwareErasesRecordings(info: DeviceInfo?): Boolean =
 
 data class RingCandidate(val address: String, val name: String, val rssi: Int)
 
+data class RingEvent(val epoch: Long, val packet: Packet, val live: LiveStreamEvent?)
+
 data class RingSnapshot(
     val phase: String = "disconnected",
     val deviceName: String = "",
@@ -61,10 +63,10 @@ class RingController(context: Context) : AutoCloseable {
     val connectionEpoch: Long get() = epoch.get()
     private val mutableState = MutableStateFlow(RingSnapshot())
     private val mutableScanResults = MutableStateFlow<List<RingCandidate>>(emptyList())
-    private val mutableEvents = MutableSharedFlow<Packet>(extraBufferCapacity = 64)
+    private val mutableEvents = MutableSharedFlow<RingEvent>(extraBufferCapacity = 64)
     val state: StateFlow<RingSnapshot> = mutableState.asStateFlow()
     val scanResults: StateFlow<List<RingCandidate>> = mutableScanResults.asStateFlow()
-    val events: SharedFlow<Packet> = mutableEvents.asSharedFlow()
+    val events: SharedFlow<RingEvent> = mutableEvents.asSharedFlow()
     @Volatile private var connection: RingSession? = null
     private var scannerCallback: ScanCallback? = null
     private var scanTimeout: Job? = null
@@ -251,9 +253,9 @@ class RingController(context: Context) : AutoCloseable {
     }
 
     private suspend fun newSession(address: String): RingSession {
-        epoch.incrementAndGet()
+        val sessionEpoch = epoch.incrementAndGet()
         val peer = adapter().getRemoteDevice(address)
-        val session = RingSession(context, peer, mutableEvents) { failed, error ->
+        val session = RingSession(context, peer, mutableEvents, sessionEpoch) { failed, error ->
             if (connection === failed) {
                 connection = null
                 mutableState.update { it.copy(phase = "disconnected", info = null, capabilities = null,
