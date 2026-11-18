@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ${{ vars.CI_RUNNER || 'zilo-linux' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     env:
       CARGO_BUILD_JOBS: '2'
