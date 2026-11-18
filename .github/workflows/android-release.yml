@@ -1,31 +1,30 @@
 name: Publish OpenZilo Connect
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Release version matching connectVersion (X.Y.Z)
-        required: true
-        type: string
+  push:
+    tags: ['v*']
 
 permissions:
   contents: read
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    env:
-      VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
       - name: Validate version
+        id: version
         run: |
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          export VERSION="${GITHUB_REF_NAME#v}"
           grep -Fxq "connectVersion=$VERSION" gradle.properties
+          printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
+          printf 'VERSION=%s\n' "$VERSION" >> "$GITHUB_ENV"
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -53,13 +52,13 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      VERSION: ${{ inputs.version }}
+      VERSION: ${{ needs.build.outputs.version }}
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: connect-release
       - run: |
-          gh release create "v$VERSION" "connect-api-$VERSION.aar" "OpenZilo-Connect-$VERSION-debug.apk" \
+          gh release create "$GITHUB_REF_NAME" --verify-tag "connect-api-$VERSION.aar" "OpenZilo-Connect-$VERSION-debug.apk" \
             "OpenZilo-Connect-$VERSION-unsigned.aab" LICENSE --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --title "OpenZilo Connect $VERSION" \
+            --title "OpenZilo Connect $VERSION" \
             --notes "The APK is debug-signed for testing. The release AAB is unsigned. AAR consumers must include org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2 and install a compatible Connect app."

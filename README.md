@@ -49,7 +49,7 @@ Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; C
 
 ## Releases
 
-The `android-release.yml` workflow publishes the client AAR, an installable debug-signed APK, and an unsigned release AAB together. Its `version` input must match `connectVersion` in `gradle.properties`.
+The `android-release.yml` workflow publishes the client AAR, an installable debug-signed APK, and an unsigned release AAB together. Push a `vX.Y.Z` tag matching `connectVersion` in `gradle.properties` to trigger it.
 
 ## License
 
