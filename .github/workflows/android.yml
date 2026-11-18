@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'zilo-linux' }}
     timeout-minutes: 45
     env:
       CARGO_BUILD_JOBS: '2'
@@ -25,11 +25,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check out pinned submodules
-        env:
-          REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
-        run: |
-          test -n "$REPO_READ_TOKEN" || { echo "REPO_READ_TOKEN must grant read access to the private libopenzilo repository"; exit 1; }
-          git -c url."https://x-access-token:${REPO_READ_TOKEN}@github.com/".insteadOf="https://github.com/" submodule update --init --recursive
+        run: git submodule update --init --recursive
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
