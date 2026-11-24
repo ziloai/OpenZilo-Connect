@@ -51,6 +51,15 @@ Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; C
 
 The `android-release.yml` workflow publishes the client AAR, an installable debug-signed APK, and an unsigned release AAB together. Push a `vX.Y.Z` tag matching `connectVersion` in `gradle.properties` to trigger it.
 
+## Community
+
+- WeChat developer group
+
+  <img src="docs/assets/wechat-group.png" alt="OpenZilo WeChat developer group QR code" width="160">
+
+- [Discord](https://discord.gg/pTJZ3RMHA5)
+- [GitHub Discussions](https://github.com/ziloai/OpenZilo/discussions)
+
 ## License
 
 Connect is licensed under [MPL-2.0](LICENSE). It builds against a pinned [libopenzilo Android release](https://github.com/ziloai/libopenzilo/releases) (MPL-2.0) and published [miuix](https://github.com/compose-miuix-ui/miuix) packages (Apache-2.0). License copies and corresponding-source information are bundled in `assets/licenses/` inside the APK.
