@@ -28,13 +28,5 @@ dependencyResolutionManagement {
     }
 }
 
-if (file("../../settings.gradle.kts").exists()) {
-    includeBuild("../..") {
-        dependencySubstitution {
-            substitute(module("io.github.ziloai:connect-api")).using(project(":connect-api"))
-        }
-    }
-}
-
 rootProject.name = "OpenZiloPose"
 include(":app")

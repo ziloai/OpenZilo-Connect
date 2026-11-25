@@ -41,7 +41,7 @@ ivy {
 In your Android module's dependencies, add:
 
 ```kotlin
-implementation("io.github.ziloai:connect-api:0.1.0@aar")
+implementation("io.github.ziloai:connect-api:0.1.2@aar")
 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 ```
 

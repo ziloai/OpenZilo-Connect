@@ -3,12 +3,19 @@ name: Publish OpenZilo Connect
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing GitHub Release tag (e.g. v0.1.2) to publish connect-api to Maven Central'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.event_name == 'push'
     outputs:
       version: ${{ steps.version.outputs.version }}
     runs-on: ubuntu-24.04
@@ -45,7 +52,9 @@ jobs:
           name: connect-release
           path: ${{ runner.temp }}/release/*
           if-no-files-found: error
+
   publish:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -62,3 +71,148 @@ jobs:
             "OpenZilo-Connect-$VERSION-unsigned.aab" LICENSE --repo "$GITHUB_REPOSITORY" \
             --title "OpenZilo Connect $VERSION" \
             --notes "The APK is debug-signed for testing. The release AAB is unsigned. AAR consumers must include org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2 and install a compatible Connect app."
+
+  maven:
+    needs: [build]
+    if: >-
+      always() && (
+        (github.event_name == 'push' && needs.build.result == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
+    runs-on: ubuntu-24.04
+    environment: maven
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      SIGNING_IN_MEMORY_KEY: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+      SIGNING_IN_MEMORY_KEY_PASSWORD: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+    steps:
+      - name: Validate tag and secrets
+        id: check
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          printf 'VERSION=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          missing=0
+          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_IN_MEMORY_KEY SIGNING_IN_MEMORY_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              missing=1
+              if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                echo "::error::Missing GitHub secret $name"
+              else
+                echo "::warning::Skipping Maven Central upload because secret $name is not configured on this repository/org yet"
+              fi
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then exit 1; fi
+            printf 'skip=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'skip=false\n' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        if: steps.check.outputs.skip != 'true'
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        if: steps.check.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Download connect-api AAR from this run
+        if: steps.check.outputs.skip != 'true' && github.event_name == 'push'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: connect-release
+          path: aar
+      - name: Download connect-api AAR from GitHub Release
+        if: steps.check.outputs.skip != 'true' && github.event_name == 'workflow_dispatch'
+        run: gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'connect-api-*.aar' --dir aar
+      - name: Assemble Maven layout
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          dir="maven-staging/com/openzilo/connect-api/$VERSION"
+          mkdir -p "$dir" src-bundle
+          cp -r connect-api/src/main/java/. src-bundle/
+          cp -r connect-api/src/main/aidl/. src-bundle/
+          cp "aar/connect-api-$VERSION.aar" "$dir/"
+          jar --create --file "$dir/connect-api-$VERSION-sources.jar" -C src-bundle .
+          jar --create --file "$dir/connect-api-$VERSION-javadoc.jar" README.md LICENSE
+          cat > "$dir/connect-api-$VERSION.pom" <<POM
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>com.openzilo</groupId>
+            <artifactId>connect-api</artifactId>
+            <version>$VERSION</version>
+            <packaging>aar</packaging>
+            <name>connect-api</name>
+            <description>Pure-Kotlin Android Binder client library for OpenZilo Connect.</description>
+            <url>https://github.com/ziloai/OpenZilo-Connect</url>
+            <licenses>
+              <license>
+                <name>Mozilla Public License 2.0</name>
+                <url>https://www.mozilla.org/en-US/MPL/2.0/</url>
+                <distribution>repo</distribution>
+              </license>
+            </licenses>
+            <developers>
+              <developer>
+                <id>ziloai</id>
+                <name>OpenZilo</name>
+                <url>https://openzilo.com</url>
+              </developer>
+            </developers>
+            <scm>
+              <connection>scm:git:https://github.com/ziloai/OpenZilo-Connect.git</connection>
+              <developerConnection>scm:git:ssh://git@github.com/ziloai/OpenZilo-Connect.git</developerConnection>
+              <url>https://github.com/ziloai/OpenZilo-Connect</url>
+            </scm>
+            <dependencies>
+              <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-coroutines-android</artifactId>
+                <version>1.10.2</version>
+                <scope>compile</scope>
+              </dependency>
+            </dependencies>
+          </project>
+          POM
+      - name: Checksum, sign and bundle
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          find maven-staging \( -name 'maven-metadata*' -o -name '_remote.repositories' \) -delete
+          export GNUPGHOME="$(mktemp -d)"; chmod 700 "$GNUPGHOME"
+          printf '%s\n' "$SIGNING_IN_MEMORY_KEY" | gpg --batch --import
+          while IFS= read -r -d '' f; do
+            md5sum "$f" | awk '{printf "%s", $1}' > "$f.md5"
+            sha1sum "$f" | awk '{printf "%s", $1}' > "$f.sha1"
+            sha256sum "$f" | awk '{printf "%s", $1}' > "$f.sha256"
+            sha512sum "$f" | awk '{printf "%s", $1}' > "$f.sha512"
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$SIGNING_IN_MEMORY_KEY_PASSWORD" --armor --detach-sign "$f"
+          done < <(find maven-staging -type f \( -name '*.aar' -o -name '*.jar' -o -name '*.pom' \) -print0)
+          (cd maven-staging && zip -qr "$RUNNER_TEMP/maven-bundle.zip" com)
+          unzip -l "$RUNNER_TEMP/maven-bundle.zip"
+      - name: Upload to Central Portal
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          TOKEN=$(printf '%s:%s' "$MAVEN_CENTRAL_USERNAME" "$MAVEN_CENTRAL_PASSWORD" | base64 | tr -d '\n')
+          DEPLOYMENT_ID=$(curl --fail-with-body -sS --request POST \
+            --header "Authorization: Bearer $TOKEN" \
+            --form "bundle=@$RUNNER_TEMP/maven-bundle.zip;type=application/octet-stream" \
+            "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC&name=connect-api-$VERSION")
+          echo "Central Portal deployment ID: $DEPLOYMENT_ID"
+          for i in $(seq 1 24); do
+            RESPONSE=$(curl -sS --request POST --header "Authorization: Bearer $TOKEN" "https://central.sonatype.com/api/v1/publisher/status?id=$DEPLOYMENT_ID")
+            STATE=$(printf '%s' "$RESPONSE" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("deploymentState",""))')
+            echo "State: $STATE"
+            case "$STATE" in
+              VALIDATED|PUBLISHING|PUBLISHED) exit 0 ;;
+              FAILED) echo "$RESPONSE"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Deployment still $STATE after polling; check the Central Portal."
