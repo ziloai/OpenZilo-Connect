@@ -17,11 +17,35 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     androidResources { generateLocaleConfig = true }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+    val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+    val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
+        !System.getenv("ANDROID_KEYSTORE_PASSWORD").isNullOrBlank() &&
+        !System.getenv("ANDROID_KEY_ALIAS").isNullOrBlank() &&
+        !System.getenv("ANDROID_KEY_PASSWORD").isNullOrBlank()
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

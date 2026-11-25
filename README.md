@@ -27,14 +27,14 @@ The [`connect-api`](connect-api) library contains the Binder client and AIDL con
 The Android client AAR is published to [Maven Central](https://central.sonatype.com/artifact/com.openzilo/connect-api). With `mavenCentral()` configured in `settings.gradle.kts`, add this to your Android module's dependencies:
 
 ```kotlin
-implementation("com.openzilo:connect-api:0.1.2")
+implementation("com.openzilo:connect-api:0.1.3")
 ```
 
 Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; Connect and Input use Kotlin 2.4.21. The AAR is not an installable app. Install a compatible version of Connect on the device. There is no desktop/iOS host in this repository yet.
 
 ## Releases
 
-The `android-release.yml` workflow publishes `com.openzilo:connect-api` to Maven Central, along with the client AAR, an installable debug-signed APK, and an unsigned release AAB on [GitHub Releases](https://github.com/ziloai/OpenZilo-Connect/releases). Push a `vX.Y.Z` tag matching `connectVersion` in `gradle.properties` to trigger it.
+The `android-release.yml` workflow publishes `com.openzilo:connect-api` to Maven Central, along with the client AAR, a signed release APK, a signed release AAB, and `SHA256SUMS.txt` on [GitHub Releases](https://github.com/ziloai/OpenZilo-Connect/releases). Push a `vX.Y.Z` tag matching `connectVersion` in `gradle.properties` to trigger it.
 
 ## Community
 

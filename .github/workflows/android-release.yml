@@ -41,12 +41,30 @@ jobs:
           packages: platforms;android-37.0 platforms;android-37.2 build-tools;37.0.0
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
       - name: Test and package the app and API
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          ./gradlew --no-daemon --max-workers=2 testDebugUnitTest lintDebug :connect-api:assembleRelease :app:assembleDebug :app:bundleRelease
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "::error::Missing Android release signing secrets (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD)"
+            exit 1
+          fi
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/openzilo-connect-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          chmod 600 "$ANDROID_KEYSTORE_PATH"
+          trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
+
+          ./gradlew --no-daemon --max-workers=2 testDebugUnitTest lintDebug :connect-api:assembleRelease :app:assembleRelease :app:bundleRelease
+
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+
           install -D connect-api/build/outputs/aar/connect-api-release.aar "$RUNNER_TEMP/release/connect-api-$VERSION.aar"
-          install app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/release/OpenZilo-Connect-$VERSION-debug.apk"
-          install app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/release/OpenZilo-Connect-$VERSION-unsigned.aab"
+          install app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/release/OpenZilo-Connect-$VERSION.apk"
+          install app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/release/OpenZilo-Connect-$VERSION.aab"
           cp LICENSE "$RUNNER_TEMP/release/"
+          (cd "$RUNNER_TEMP/release" && sha256sum "OpenZilo-Connect-$VERSION.apk" "OpenZilo-Connect-$VERSION.aab" "connect-api-$VERSION.aar" > SHA256SUMS.txt)
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: connect-release
@@ -67,10 +85,10 @@ jobs:
         with:
           name: connect-release
       - run: |
-          gh release create "$GITHUB_REF_NAME" --verify-tag "connect-api-$VERSION.aar" "OpenZilo-Connect-$VERSION-debug.apk" \
-            "OpenZilo-Connect-$VERSION-unsigned.aab" LICENSE --repo "$GITHUB_REPOSITORY" \
+          gh release create "$GITHUB_REF_NAME" --verify-tag "OpenZilo-Connect-$VERSION.apk" \
+            "OpenZilo-Connect-$VERSION.aab" "connect-api-$VERSION.aar" SHA256SUMS.txt LICENSE --repo "$GITHUB_REPOSITORY" \
             --title "OpenZilo Connect $VERSION" \
-            --notes "The APK is debug-signed for testing. The release AAB is unsigned. AAR consumers must include org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2 and install a compatible Connect app."
+            --notes "Signed release APK and AAB for OpenZilo Connect $VERSION. Client apps can depend on \`com.openzilo:connect-api:$VERSION\` from Maven Central."
 
   maven:
     needs: [build]
