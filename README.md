@@ -4,7 +4,7 @@ OpenZilo Connect is the Android companion and connection broker for OpenZilo rin
 
 ## Build from source
 
-Use JDK 21, Git, and Android command-line tools. Set `ANDROID_HOME` to the Android SDK path. The Gradle wrapper builds the app and downloads a fixed libopenzilo Android AAR from GitHub Releases and miuix from Maven Central. No submodules, Rust toolchain, or NDK installation is needed.
+Use JDK 21, Git, and Android command-line tools. Set `ANDROID_HOME` to the Android SDK path. The Gradle wrapper builds the app and downloads libopenzilo and miuix from Maven Central. No submodules, Rust toolchain, or NDK installation is needed.
 
 ```bash
 git clone https://github.com/ziloai/OpenZilo-Connect.git
@@ -62,4 +62,4 @@ The `android-release.yml` workflow publishes the client AAR, an installable debu
 
 ## License
 
-Connect is licensed under [MPL-2.0](LICENSE). It builds against a pinned [libopenzilo Android release](https://github.com/ziloai/libopenzilo/releases) (MPL-2.0) and published [miuix](https://github.com/compose-miuix-ui/miuix) packages (Apache-2.0). License copies and corresponding-source information are bundled in `assets/licenses/` inside the APK.
+Connect is licensed under [MPL-2.0](LICENSE). It builds against a pinned [libopenzilo Android package](https://central.sonatype.com/artifact/com.openzilo/libopenzilo-android) on Maven Central (MPL-2.0) and published [miuix](https://github.com/compose-miuix-ui/miuix) packages (Apache-2.0). License copies and corresponding-source information are bundled in `assets/licenses/` inside the APK.

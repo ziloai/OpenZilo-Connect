@@ -23,6 +23,17 @@
             <meta-data android:name="autoStoreLocales" android:value="true" />
         </service>
         <activity android:name=".GrantActivity" android:exported="false" android:excludeFromRecents="true" />
+        <activity
+            android:name=".WakeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="com.openzilo.connect.WAKE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <service android:name=".ConnectService" android:exported="true" android:foregroundServiceType="connectedDevice">
             <intent-filter><action android:name="com.openzilo.connect.BIND" /></intent-filter>
         </service>

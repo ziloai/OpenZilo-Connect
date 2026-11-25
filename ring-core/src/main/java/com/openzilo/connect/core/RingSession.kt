@@ -99,11 +99,20 @@ internal class RingSession(
             val result = CompletableDeferred<Packet>()
             pending[ticket.id] = result
             try {
-                withTimeout(timeoutMs) {
+                val packet = withTimeout(timeoutMs) {
                     try { transport.send(ticket.frame) }
                     catch (error: Throwable) { if (!ended.get()) engine.interruptWrite(generation); fail(error); throw error }
                     result.await()
                 }
+                if (otaOwner == null) {
+                    when (request) {
+                        is DeviceRequest.StartImu -> transport.setHighPriority(true)
+                        is DeviceRequest.LiveSubscribe -> transport.setHighPriority(request.enabled)
+                        is DeviceRequest.StopImu -> transport.setHighPriority(false)
+                        else -> Unit
+                    }
+                }
+                packet
             } finally {
                 if (!result.isCompleted || result.isCancelled) {
                     if (!ended.get()) engine.cancel(ticket.id)

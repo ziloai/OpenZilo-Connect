@@ -1,0 +1,102 @@
+<resources>
+    <string name="app_name">OpenZilo Pose</string>
+    <string name="tab_stage">3D Pose</string>
+    <string name="tab_telemetry">Telemetry</string>
+    <string name="tab_calibration">Calibration</string>
+
+    <string name="status_unbound">Not bound to OpenZilo Connect</string>
+    <string name="status_binding">Connecting to OpenZilo Connect…</string>
+    <string name="status_auth_required">Authorization required (info + sensors)</string>
+    <string name="status_ring_disconnected">Connect bound · Ring disconnected</string>
+    <string name="status_ring_ready">Ring ready (%1$s)</string>
+    <string name="status_streaming">Streaming Live IMU · %1$d Hz</string>
+    <string name="status_simulating">Interactive Simulation · %1$s</string>
+
+    <string name="action_bind">Connect Service</string>
+    <string name="action_authorize">Grant Access</string>
+    <string name="action_open_connect">Open Connect</string>
+    <string name="action_start_imu">Start Live Pose</string>
+    <string name="action_stop_imu">Stop Stream</string>
+    <string name="action_tare_heading">Zero Heading</string>
+    <string name="action_tare_full">Zero Full Pose</string>
+    <string name="action_reset_camera">Reset View</string>
+    <string name="action_start_sim">Demo Mode</string>
+    <string name="action_stop_sim">Exit Demo</string>
+    <string name="action_calibrate_gyro">Calibrate Gyro Bias (3s Still)</string>
+    <string name="action_calibrating_gyro">Keep Ring Still…</string>
+    <string name="action_clear_calibration">Reset Bias</string>
+
+    <string name="posture_horizontal_up">Horizontal · Upright</string>
+    <string name="posture_horizontal_flipped">Horizontal · Flipped (Inverted)</string>
+    <string name="posture_vertical_standing">Vertical · Standing On Edge</string>
+    <string name="posture_vertical_bore">Vertical · Bore Axis Upright</string>
+    <string name="posture_tilted">Tilted · Oblique Angle</string>
+    <string name="posture_dynamic_motion">Dynamic Motion</string>
+
+    <string name="posture_desc_horizontal_up">Ring top boss faces upward (+Z aligned with sky, bore horizontal)</string>
+    <string name="posture_desc_horizontal_flipped">Ring is horizontally flipped 180° (top boss faces downward)</string>
+    <string name="posture_desc_vertical_standing">Ring stands vertically on its side rim (90° roll)</string>
+    <string name="posture_desc_vertical_bore">Ring flat plane lies horizontal (finger bore points vertically)</string>
+    <string name="posture_desc_tilted">Intermediate 3D inclination tracked via gravity + gyro fusion</string>
+    <string name="posture_desc_dynamic">Rapid rotation or linear acceleration detected</string>
+
+    <string name="hud_roll">Roll</string>
+    <string name="hud_pitch">Pitch</string>
+    <string name="hud_yaw">Yaw (Rel)</string>
+    <string name="hud_tilt">Tilt to Gravity</string>
+    <string name="hud_rate">Rate</string>
+    <string name="hud_packets">Samples</string>
+
+    <string name="section_connection">OpenZilo Connect Broker</string>
+    <string name="section_simulation">Built-in Posture Simulator</string>
+    <string name="section_quaternion">Attitude Quaternion &amp; Gravity</string>
+    <string name="section_imu_raw">Physical IMU Stream</string>
+    <string name="section_events">Ring Events (Tap &amp; Button)</string>
+    <string name="section_axis_mapping">Ring Body Coordinate Mapping</string>
+    <string name="section_filter_tuning">6-DoF Sensor Fusion &amp; Gyro Bias</string>
+    <string name="section_display">3D Viewport &amp; Language</string>
+
+    <string name="sim_preset">Simulation Preset</string>
+    <string name="sim_preset_orbit">Continuous 3D Showcase</string>
+    <string name="sim_preset_horizontal_up">Horizontal · Upright (0°)</string>
+    <string name="sim_preset_horizontal_flip">Horizontal · Flipped (180°)</string>
+    <string name="sim_preset_vertical_edge">Vertical · Standing Edge (90°)</string>
+    <string name="sim_preset_vertical_flat">Flat on Table · Bore Vertical</string>
+    <string name="sim_preset_finger_gesture">Finger Roll &amp; Nod Gesture</string>
+
+    <string name="axis_preset_title">IMU-to-Ring Axis Preset</string>
+    <string name="axis_preset_standard">Standard (+X Bore, +Y Side, +Z Top Boss)</string>
+    <string name="axis_preset_swapped_xy">Rotated 90° (+Y Bore, -X Side, +Z Top Boss)</string>
+    <string name="axis_preset_z_bore">Bore on Z (+Z Bore, +X Top Boss, +Y Side)</string>
+    <string name="axis_invert_z">Invert Radial Top (+Z ↔ -Z)</string>
+    <string name="axis_invert_z_desc">Flip if upright vs inverted posture appears reversed on your hardware</string>
+
+    <string name="fusion_kp">Gravity Correction Gain</string>
+    <string name="fusion_kp_fast">Responsive (Kp = 3.0)</string>
+    <string name="fusion_kp_balanced">Balanced Mahony (Kp = 1.6)</string>
+    <string name="fusion_kp_smooth">Gyro-Dominant Smooth (Kp = 0.6)</string>
+
+    <string name="show_axes">Show 3D Ring Axes &amp; Gravity Vector</string>
+    <string name="show_grid">Show World Horizon Reference Grid</string>
+    <string name="tap_to_tare">Double-Tap / Button Zeroes Heading</string>
+    <string name="tap_to_tare_desc">Automatically reset relative yaw when ring reports 0x0701 or 0x0704</string>
+
+    <string name="gyro_bias_status">Gyro Bias Offset</string>
+    <string name="gyro_bias_none">Uncalibrated (0.00, 0.00, 0.00 deg/s) — auto ZUPT active</string>
+    <string name="gyro_bias_calibrated">Calibrated (%1$.2f, %2$.2f, %3$.2f deg/s)</string>
+
+    <string name="app_language">Language</string>
+    <string name="lang_system">Follow System</string>
+    <string name="lang_zh">简体中文</string>
+    <string name="lang_en">English</string>
+
+    <string name="label_device">Connected Ring</string>
+    <string name="label_firmware">Firmware</string>
+    <string name="label_battery">Battery</string>
+    <string name="label_imu_config">IMU Contract</string>
+    <string name="label_sequence_gaps">Sequence Gaps</string>
+    <string name="label_last_event">Last Action Event</string>
+    <string name="value_none">None</string>
+    <string name="value_unknown">—</string>
+    <string name="gesture_hint">Drag viewport to orbit camera · Pinch to zoom</string>
+</resources>

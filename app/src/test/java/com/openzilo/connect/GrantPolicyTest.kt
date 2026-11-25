@@ -20,10 +20,17 @@ class GrantPolicyTest {
         assertTrue(GrantPolicy.withScope(changed.scopes, "info", false).isEmpty())
     }
     @Test fun allOperationsAreExplicitlyScoped() {
-        assertEquals(21, GrantPolicy.operationScopes.size)
+        assertEquals(27, GrantPolicy.operationScopes.size)
         assertEquals("firmware", GrantPolicy.operationScope("firmware.upgrade"))
         assertEquals("audio", GrantPolicy.operationScope("audio.clear"))
         assertEquals("recording", GrantPolicy.operationScope("recording.start"))
+        assertEquals("sensors", GrantPolicy.operationScope("imu.calibration"))
+        assertEquals("sensors", GrantPolicy.operationScope("imu.calibrate.gyro"))
+        assertEquals("sensors", GrantPolicy.operationScope("imu.calibrate.upright"))
+        assertEquals("sensors", GrantPolicy.operationScope("imu.calibration.reset"))
+        assertEquals("sensors", GrantPolicy.operationScope("imu.attitude.zero"))
+        assertEquals("sensors", GrantPolicy.operationScope("imu.attitude.mapping"))
+        assertEquals("info", GrantPolicy.topicScope("status"))
         GrantPolicy.operationScopes.values.forEach { assertTrue(it in GrantPolicy.scopes) }
     }
     @Test fun unsupportedOperationsAndScopesFailClosed() {

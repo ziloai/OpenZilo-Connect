@@ -25,10 +25,14 @@ object GrantPolicy {
         "recording.start" to "recording", "recording.stop" to "recording", "recording.status" to "recording",
         "audio.count" to "audio", "audio.info" to "audio", "audio.quick" to "audio",
         "audio.read" to "audio", "audio.end" to "audio", "audio.clear" to "audio", "live.subscribe" to "audio",
-        "imu.start" to "sensors", "imu.stop" to "sensors", "logs.storage" to "logs", "logs.read" to "logs",
+        "imu.start" to "sensors", "imu.stop" to "sensors",
+        "imu.attitude.zero" to "sensors", "imu.attitude.mapping" to "sensors",
+        "imu.calibration" to "sensors", "imu.calibrate.gyro" to "sensors",
+        "imu.calibrate.upright" to "sensors", "imu.calibration.reset" to "sensors",
+        "logs.storage" to "logs", "logs.read" to "logs",
         "time.reply" to "time", "firmware.upgrade" to "firmware",
     )
-    val topicScopes = mapOf("imu" to "sensors", "gesture" to "sensors", "live" to "audio", "audio" to "audio", "recording" to "recording", "time" to "time")
+    val topicScopes = mapOf("status" to "info", "imu" to "sensors", "gesture" to "sensors", "live" to "audio", "audio" to "audio", "recording" to "recording", "time" to "time")
     fun requireScopes(requested: Set<String>) {
         require(requested.isNotEmpty() && requested.size <= scopes.size && scopes.containsAll(requested)) { "Unknown or empty permissions" }
     }

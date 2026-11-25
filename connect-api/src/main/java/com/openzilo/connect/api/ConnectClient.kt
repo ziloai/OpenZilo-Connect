@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -15,8 +17,8 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +29,101 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+
+data class ConnectStatus(
+    val phase: String,
+    val deviceName: String,
+    val model: String?,
+    val firmwareVersion: String?,
+    val boardTarget: String?,
+    val batteryPercent: Int?,
+    val charging: Boolean,
+    val ringKey: String?,
+    val calibratedComponents: List<String>,
+    val gyroBiasDps: List<Double>?,
+    val message: String?,
+)
+
+data class ImuConfigInfo(
+    val sampleRateHz: Int,
+    val accelRangeG: Int,
+    val gyroRangeDps: Int,
+)
+
+data class ImuSampleData(
+    val timestampMs: Long,
+    val axG: Double,
+    val ayG: Double,
+    val azG: Double,
+    val gxDps: Double,
+    val gyDps: Double,
+    val gzDps: Double,
+)
+
+enum class RingPostureKind {
+    HORIZONTAL_UPRIGHT,
+    HORIZONTAL_FLIPPED,
+    VERTICAL_STANDING_EDGE,
+    VERTICAL_BORE_AXIS,
+    TILTED,
+    DYNAMIC_MOTION,
+}
+
+enum class RingAxisPresetKind {
+    STANDARD,
+    SWAPPED_XY,
+    Z_BORE,
+}
+
+data class ImuAttitudeData(
+    val qw: Double,
+    val qx: Double,
+    val qy: Double,
+    val qz: Double,
+    val rollDeg: Double,
+    val pitchDeg: Double,
+    val yawDeg: Double,
+    val tiltFromZenithDeg: Double,
+    val posture: RingPostureKind,
+    val openGlMatrix: FloatArray,
+    val stationary: Boolean,
+    val wxDps: Double = 0.0,
+    val wyDps: Double = 0.0,
+    val wzDps: Double = 0.0,
+)
+
+data class ImuBatchEvent(
+    val sequenceStart: Long,
+    val samples: List<ImuSampleData>,
+    val appliedComponents: List<String>,
+    val attitude: ImuAttitudeData?,
+    val trajectoryQuaternions: DoubleArray? = null,
+)
+
+sealed interface RingGestureEvent {
+    val timestamp: Long
+    data class DoubleTap(override val timestamp: Long) : RingGestureEvent
+    data class SensorGesture(override val timestamp: Long, val gestureId: Int, val name: String) : RingGestureEvent
+    data class ButtonDoubleClick(override val timestamp: Long) : RingGestureEvent
+    data class ButtonSingleClick(override val timestamp: Long) : RingGestureEvent
+}
+
+fun Bundle.toConnectStatus(): ConnectStatus {
+    check(getInt("apiVersion") == ConnectClient.API_VERSION) { "Unsupported Connect API version" }
+    return ConnectStatus(
+        phase = getString("phase") ?: "disconnected",
+        deviceName = getString("deviceName").orEmpty(),
+        model = getString("model"),
+        firmwareVersion = getString("firmwareVersion"),
+        boardTarget = getString("boardTarget"),
+        batteryPercent = if (containsKey("batteryPercent")) getInt("batteryPercent") else null,
+        charging = getBoolean("charging", false),
+        ringKey = getString("ringKey"),
+        calibratedComponents = getStringArray("calibratedComponents")?.toList().orEmpty(),
+        gyroBiasDps = getDoubleArray("gyroBiasDps")?.toList(),
+        message = getString("message"),
+    )
+}
 
 data class ConnectEvent(val topic: String, val data: Bundle) {
     fun liveAudio(): LiveAudioEvent? {
@@ -47,6 +144,71 @@ data class ConnectEvent(val topic: String, val data: Bundle) {
             else -> error("Unknown live audio event")
         }
     }
+
+    fun imuBatch(): ImuBatchEvent? {
+        if (topic != "imu") return null
+        check(data.getInt("apiVersion") == ConnectClient.API_VERSION) { "Unsupported Connect API version" }
+        val ts = data.getLongArray("timestampsMs") ?: return null
+        val accel = data.getDoubleArray("accelG") ?: return null
+        val gyro = data.getDoubleArray("gyroDps") ?: return null
+        if (accel.size != ts.size * 3 || gyro.size != ts.size * 3) return null
+        val samples = ts.indices.map { i ->
+            val o = i * 3
+            ImuSampleData(ts[i], accel[o], accel[o + 1], accel[o + 2], gyro[o], gyro[o + 1], gyro[o + 2])
+        }
+        val q = data.getDoubleArray("quaternion")
+        val euler = data.getDoubleArray("eulerDeg")
+        val gyroBody = data.getDoubleArray("gyroBodyDps")
+        val glMat = data.getFloatArray("openGlMatrix")
+        val postureName = data.getString("posture")
+        val attitude = if (q != null && q.size == 4 && euler != null && euler.size == 3 && glMat != null && glMat.size == 16 && postureName != null) {
+            ImuAttitudeData(
+                qw = q[0], qx = q[1], qy = q[2], qz = q[3],
+                rollDeg = euler[0], pitchDeg = euler[1], yawDeg = euler[2],
+                tiltFromZenithDeg = data.getDouble("tiltFromZenithDeg", 0.0),
+                posture = runCatching { RingPostureKind.valueOf(postureName) }.getOrDefault(RingPostureKind.TILTED),
+                openGlMatrix = glMat,
+                stationary = data.getBoolean("stationary", false),
+                wxDps = gyroBody?.getOrNull(0) ?: 0.0,
+                wyDps = gyroBody?.getOrNull(1) ?: 0.0,
+                wzDps = gyroBody?.getOrNull(2) ?: 0.0,
+            )
+        } else null
+        val trajQuats = data.getDoubleArray("trajectoryQuaternions")?.takeIf { it.size == samples.size * 4 }
+        return ImuBatchEvent(
+            sequenceStart = data.getLong("sequenceStart", 0L),
+            samples = samples,
+            appliedComponents = data.getStringArray("appliedComponents")?.toList().orEmpty(),
+            attitude = attitude,
+            trajectoryQuaternions = trajQuats,
+        )
+    }
+
+    fun gestureEvent(): RingGestureEvent? {
+        if (topic != "gesture") return null
+        check(data.getInt("apiVersion") == ConnectClient.API_VERSION) { "Unsupported Connect API version" }
+        val command = data.getInt("command", 0)
+        val ts = if (data.containsKey("timestamp")) {
+            data.getLong("timestamp")
+        } else {
+            val body = data.getByteArray("body") ?: return null
+            if (body.size < 4) return null
+            ByteBuffer.wrap(body).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xFFFF_FFFFL
+        }
+        return when (command) {
+            0x0701 -> RingGestureEvent.DoubleTap(ts)
+            0x0702 -> RingGestureEvent.SensorGesture(
+                ts,
+                data.getInt("gestureId", 0),
+                data.getString("gestureName") ?: "unknown",
+            )
+            0x0703 -> RingGestureEvent.ButtonDoubleClick(ts)
+            0x0704 -> RingGestureEvent.ButtonSingleClick(ts)
+            else -> null
+        }
+    }
+
+    fun statusSnapshot(): ConnectStatus? = if (topic == "status") data.toConnectStatus() else null
 }
 
 sealed interface LiveAudioEvent {
@@ -56,7 +218,7 @@ sealed interface LiveAudioEvent {
     data object Interrupted : LiveAudioEvent
 }
 
-/** One client owns one bounded event consumer; no Bluetooth permission is required. */
+/** One client owns one bounded event consumer; no Bluetooth or native Rust library is required. */
 class ConnectClient(context: Context) : AutoCloseable {
     private val context = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -87,10 +249,10 @@ class ConnectClient(context: Context) : AutoCloseable {
     }
     private fun objectCallback(): IConnectCallback = callback
 
-    suspend fun connect(): ConnectClient = bindMutex.withLock {
+    suspend fun connect(timeoutMs: Long = 2_000): ConnectClient = bindMutex.withLock {
         check(!closed.get()) { "Client is closed" }
         if (remote != null) return@withLock this
-        withTimeout(10_000) {
+        withTimeout(timeoutMs) {
             suspendCancellableCoroutine<Unit> { continuation ->
                 val serviceConnection = object : ServiceConnection {
                     override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -139,6 +301,67 @@ class ConnectClient(context: Context) : AutoCloseable {
     }
 
     suspend fun status(): Bundle = withContext(Dispatchers.IO) { service().status }
+
+    suspend fun ringStatus(): ConnectStatus = status().toConnectStatus()
+
+    suspend fun startImu(): ImuConfigInfo {
+        val reply = execute("imu.start")
+        check(reply.getBoolean("ok", false)) { reply.getString("error") ?: "imu.start failed" }
+        if (reply.containsKey("sampleRateHz")) {
+            return ImuConfigInfo(
+                sampleRateHz = reply.getInt("sampleRateHz"),
+                accelRangeG = reply.getInt("accelRangeG"),
+                gyroRangeDps = reply.getInt("gyroRangeDps"),
+            )
+        }
+        val body = requireNotNull(reply.getByteArray("body")) { "Missing 0x0602 body" }
+        require(body.size == 8) { "Invalid 0x0602 response size" }
+        val buf = ByteBuffer.wrap(body).order(ByteOrder.BIG_ENDIAN)
+        check((buf.short.toInt() and 0xFFFF) == 0) { "Device rejected IMU start" }
+        return ImuConfigInfo(
+            sampleRateHz = buf.short.toInt() and 0xFFFF,
+            accelRangeG = buf.short.toInt() and 0xFFFF,
+            gyroRangeDps = buf.short.toInt() and 0xFFFF,
+        )
+    }
+
+    suspend fun stopImu() {
+        val reply = execute("imu.stop")
+        check(reply.getBoolean("ok", false)) { reply.getString("error") ?: "imu.stop failed" }
+    }
+
+    suspend fun zeroAttitudeHeading() {
+        val reply = execute("imu.attitude.zero")
+        check(reply.getBoolean("ok", false)) { reply.getString("error") ?: "imu.attitude.zero failed" }
+    }
+
+    suspend fun configureAttitudeAxes(preset: RingAxisPresetKind, invertRadialZ: Boolean) {
+        val args = Bundle().apply {
+            putString("preset", preset.name)
+            putBoolean("invertRadialZ", invertRadialZ)
+        }
+        val reply = execute("imu.attitude.mapping", args)
+        check(reply.getBoolean("ok", false)) { reply.getString("error") ?: "imu.attitude.mapping failed" }
+    }
+
+    suspend fun calibrateGyroBias(durationMs: Int = 3_000): Bundle {
+        val args = Bundle().apply { putInt("durationMs", durationMs) }
+        val reply = execute("imu.calibrate.gyro", args, timeoutMs = (durationMs + 15_000).toLong())
+        check(reply.getBoolean("ok", false)) { reply.getString("detail") ?: reply.getString("error") ?: "imu.calibrate.gyro failed" }
+        return reply
+    }
+
+    suspend fun calibrateUprightReference(): Bundle {
+        val reply = execute("imu.calibrate.upright")
+        check(reply.getBoolean("ok", false)) { reply.getString("detail") ?: reply.getString("error") ?: "imu.calibrate.upright failed" }
+        return reply
+    }
+
+    suspend fun resetImuCalibration(): Bundle {
+        val reply = execute("imu.calibration.reset")
+        check(reply.getBoolean("ok", false)) { reply.getString("detail") ?: reply.getString("error") ?: "imu.calibration.reset failed" }
+        return reply
+    }
 
     suspend fun execute(operation: String, arguments: Bundle = Bundle(), timeoutMs: Long = 30_000): Bundle {
         require(timeoutMs in 1..600_000)
@@ -202,5 +425,9 @@ class ConnectClient(context: Context) : AutoCloseable {
         const val API_VERSION = 2
         const val HOST_PACKAGE = "com.openzilo.connect"
         const val HOST_SERVICE = "com.openzilo.connect.ConnectService"
+        const val HOST_WAKE_ACTIVITY = "com.openzilo.connect.WakeActivity"
+
+        fun wakeHostIntent(): Intent = Intent("com.openzilo.connect.WAKE")
+            .setComponent(ComponentName(HOST_PACKAGE, HOST_WAKE_ACTIVITY))
     }
 }

@@ -35,6 +35,7 @@ class ConnectApplication : Application() {
         mutableBinding.value = binding
     }
     val grants by lazy { GrantStore(this) }
+    val calibrations by lazy { CalibrationStore(this) }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val firmwareActive = MutableStateFlow(false)
     val upgrading = firmwareActive.asStateFlow()

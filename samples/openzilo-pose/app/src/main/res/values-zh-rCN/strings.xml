@@ -1,0 +1,102 @@
+<resources>
+    <string name="app_name">OpenZilo 姿态建模</string>
+    <string name="tab_stage">实时姿态</string>
+    <string name="tab_telemetry">传感遥测</string>
+    <string name="tab_calibration">标定设置</string>
+
+    <string name="status_unbound">尚未绑定 OpenZilo Connect 服务</string>
+    <string name="status_binding">正在连接 OpenZilo Connect…</string>
+    <string name="status_auth_required">需在 Connect 中授予设备信息与传感器权限</string>
+    <string name="status_ring_disconnected">已绑定 Connect · 戒指尚未连接</string>
+    <string name="status_ring_ready">戒指已就绪（%1$s）</string>
+    <string name="status_streaming">实时 IMU 采集中 · %1$d Hz</string>
+    <string name="status_simulating">内置仿真演示中 · %1$s</string>
+
+    <string name="action_bind">绑定服务</string>
+    <string name="action_authorize">申请授权</string>
+    <string name="action_open_connect">打开 Connect</string>
+    <string name="action_start_imu">开启实时姿态</string>
+    <string name="action_stop_imu">停止采集</string>
+    <string name="action_tare_heading">航向归零</string>
+    <string name="action_tare_full">全姿态置零</string>
+    <string name="action_reset_camera">重置视角</string>
+    <string name="action_start_sim">仿真模式</string>
+    <string name="action_stop_sim">退出仿真</string>
+    <string name="action_calibrate_gyro">静态零偏校准（静置 3 秒）</string>
+    <string name="action_calibrating_gyro">请保持戒指绝对静止…</string>
+    <string name="action_clear_calibration">清除零偏</string>
+
+    <string name="posture_horizontal_up">水平正放 · 顶面朝上</string>
+    <string name="posture_horizontal_flipped">水平翻转 · 顶面朝下（180°）</string>
+    <string name="posture_vertical_standing">垂直侧立 · 边缘竖置（90°）</string>
+    <string name="posture_vertical_bore">平躺放置 · 戒圈中轴垂直</string>
+    <string name="posture_tilted">空间倾斜 · 任意三维姿态</string>
+    <string name="posture_dynamic_motion">动态旋转 / 加速度运动中</string>
+
+    <string name="posture_desc_horizontal_up">戒指传感器/按键顶面朝上，指孔沿水平方向佩戴或放置</string>
+    <string name="posture_desc_horizontal_flipped">戒指发生 180° 水平翻转，传感器/按键顶面朝向地面</string>
+    <string name="posture_desc_vertical_standing">戒指沿侧面竖直立起（横滚角接近 ±90°）</string>
+    <string name="posture_desc_vertical_bore">戒指平面水平平放于桌面，指孔中轴线垂直地面</string>
+    <string name="posture_desc_tilted">通过重力矢量与陀螺仪四元数融合实时追踪精确空间倾角</string>
+    <string name="posture_desc_dynamic">检测到快速角速度旋转或非重力线性加速度</string>
+
+    <string name="hud_roll">横滚 Roll</string>
+    <string name="hud_pitch">俯仰 Pitch</string>
+    <string name="hud_yaw">偏航 Yaw</string>
+    <string name="hud_tilt">重力倾角</string>
+    <string name="hud_rate">采样率</string>
+    <string name="hud_packets">样本数</string>
+
+    <string name="section_connection">OpenZilo Connect 连接代理</string>
+    <string name="section_simulation">内置姿态仿真器（无硬件可预览）</string>
+    <string name="section_quaternion">姿态四元数与重力投影</string>
+    <string name="section_imu_raw">实时物理量 IMU 数据流</string>
+    <string name="section_events">戒指动作事件（敲击与按键）</string>
+    <string name="section_axis_mapping">戒指本体坐标系映射</string>
+    <string name="section_filter_tuning">6 轴融合滤波与陀螺仪零偏</string>
+    <string name="section_display">3D 视口与界面语言</string>
+
+    <string name="sim_preset">仿真姿态预设</string>
+    <string name="sim_preset_orbit">全姿态连续动态演示</string>
+    <string name="sim_preset_horizontal_up">水平正放 · 顶面朝上（0°）</string>
+    <string name="sim_preset_horizontal_flip">水平翻转 · 顶面朝下（180°）</string>
+    <string name="sim_preset_vertical_edge">垂直侧立 · 90° 侧向竖置</string>
+    <string name="sim_preset_vertical_flat">桌面平躺 · 指孔中轴垂直</string>
+    <string name="sim_preset_finger_gesture">手指翻转与俯仰交互模拟</string>
+
+    <string name="axis_preset_title">IMU 芯片与戒指几何轴映射</string>
+    <string name="axis_preset_standard">标准映射（+X 指孔轴，+Y 侧向，+Z 按键顶面）</string>
+    <string name="axis_preset_swapped_xy">旋转 90°（+Y 指孔轴，-X 侧向，+Z 按键顶面）</string>
+    <string name="axis_preset_z_bore">Z 轴指孔（+Z 指孔轴，+X 按键顶面，+Y 侧向）</string>
+    <string name="axis_invert_z">反转径向顶面轴（+Z ↔ -Z）</string>
+    <string name="axis_invert_z_desc">若实机正放与水平翻转显示相反，开启此项即可一键对齐</string>
+
+    <string name="fusion_kp">重力纠偏增益（Mahony Kp）</string>
+    <string name="fusion_kp_fast">高响应纠偏（Kp = 3.0）</string>
+    <string name="fusion_kp_balanced">均衡融合（Kp = 1.6，推荐）</string>
+    <string name="fusion_kp_smooth">陀螺仪主导高平滑（Kp = 0.6）</string>
+
+    <string name="show_axes">显示戒指本体 X/Y/Z 坐标轴与重力矢量</string>
+    <string name="show_grid">显示世界水平基准网格</string>
+    <string name="tap_to_tare">戒指双击 / 单击按键自动归零航向</string>
+    <string name="tap_to_tare_desc">收到 0x0701 双敲或 0x0704 按键事件时自动消除水平偏航累积漂移</string>
+
+    <string name="gyro_bias_status">陀螺仪零偏补偿</string>
+    <string name="gyro_bias_none">未手动标定（0.00, 0.00, 0.00 °/s）— 动态静止自适应已开启</string>
+    <string name="gyro_bias_calibrated">已标定（%1$.2f, %2$.2f, %3$.2f °/s）</string>
+
+    <string name="app_language">应用语言</string>
+    <string name="lang_system">跟随系统</string>
+    <string name="lang_zh">简体中文</string>
+    <string name="lang_en">English</string>
+
+    <string name="label_device">当前连接戒指</string>
+    <string name="label_firmware">固件版本</string>
+    <string name="label_battery">电池状态</string>
+    <string name="label_imu_config">IMU 协议参数</string>
+    <string name="label_sequence_gaps">丢包序号跳变</string>
+    <string name="label_last_event">最近动作事件</string>
+    <string name="value_none">无</string>
+    <string name="value_unknown">—</string>
+    <string name="gesture_hint">单指拖拽旋转观察视角 · 双指缩放距离</string>
+</resources>

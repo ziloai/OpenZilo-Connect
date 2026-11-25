@@ -147,12 +147,15 @@ internal class GattTransport(
         }
     }
 
-    fun prioritizeFirmware() {
+    fun prioritizeFirmware() = setHighPriority(true)
+
+    fun setHighPriority(high: Boolean) {
         try {
             requireConnectPermission(context)
-            val gatt = checkNotNull(link.get())
-            val accepted = gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
-            Log.i("OpenZiloGatt", "Firmware connection priority requested: $accepted")
+            val gatt = link.get() ?: return
+            val mode = if (high) BluetoothGatt.CONNECTION_PRIORITY_HIGH else BluetoothGatt.CONNECTION_PRIORITY_BALANCED
+            val accepted = gatt.requestConnectionPriority(mode)
+            Log.i("OpenZiloGatt", "Connection priority high=$high requested: $accepted")
         } catch (error: SecurityException) {
             fail(error)
             throw error

@@ -8,8 +8,7 @@ android {
 }
 
 dependencies {
-    api("io.github.ziloai:libopenzilo-android:0.1.0@aar")
-    api("net.java.dev.jna:jna:5.19.1@aar")
+    api("com.openzilo:libopenzilo-android:0.2.1")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
