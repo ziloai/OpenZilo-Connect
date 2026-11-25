@@ -24,32 +24,17 @@ The [`connect-api`](connect-api) library contains the Binder client and AIDL con
 3. Use `requestAuthorization()` for the scopes needed by your app and open the returned authorization intent with user interaction. Check authorization before invoking protected operations. Devices on Android 12 or newer may require the user to grant Nearby devices permission to Connect itself.
 4. Compare the service’s `apiVersion` with `ConnectClient.API_VERSION`. Subscribe to events before enabling live audio, and close the client when it is no longer needed.
 
-The Android client AAR is distributed via [GitHub Releases](https://github.com/ziloai/OpenZilo-Connect/releases). To resolve it without a source checkout or token, add this to the repositories in your `settings.gradle.kts`:
+The Android client AAR is published to [Maven Central](https://central.sonatype.com/artifact/com.openzilo/connect-api). With `mavenCentral()` configured in `settings.gradle.kts`, add this to your Android module's dependencies:
 
 ```kotlin
-ivy {
-    url = uri("https://github.com/ziloai/OpenZilo-Connect/releases/download")
-    patternLayout {
-        artifact("v[revision]/[artifact]-[revision].[ext]")
-        artifact("android-v[revision]/[artifact]-[revision].[ext]")
-    }
-    metadataSources { artifact() }
-    content { includeModule("io.github.ziloai", "connect-api") }
-}
+implementation("com.openzilo:connect-api:0.1.2")
 ```
 
-In your Android module's dependencies, add:
-
-```kotlin
-implementation("io.github.ziloai:connect-api:0.1.2@aar")
-implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-```
-
-Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; Connect and Input use Kotlin 2.4.21. The AAR is not an installable app. Install a compatible version of Connect on the device. There is no published Maven Central artifact or desktop/iOS host in this repository yet.
+Use `compileSdk` 37 or newer and a compiler that can read Kotlin 2.4 metadata; Connect and Input use Kotlin 2.4.21. The AAR is not an installable app. Install a compatible version of Connect on the device. There is no desktop/iOS host in this repository yet.
 
 ## Releases
 
-The `android-release.yml` workflow publishes the client AAR, an installable debug-signed APK, and an unsigned release AAB together. Push a `vX.Y.Z` tag matching `connectVersion` in `gradle.properties` to trigger it.
+The `android-release.yml` workflow publishes `com.openzilo:connect-api` to Maven Central, along with the client AAR, an installable debug-signed APK, and an unsigned release AAB on [GitHub Releases](https://github.com/ziloai/OpenZilo-Connect/releases). Push a `vX.Y.Z` tag matching `connectVersion` in `gradle.properties` to trigger it.
 
 ## Community
 

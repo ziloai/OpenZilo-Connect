@@ -46,7 +46,7 @@ android {
 val miuixVersion = "0.9.5-beta01"
 
 dependencies {
-    implementation("io.github.ziloai:connect-api:0.1.2@aar")
+    implementation("com.openzilo:connect-api:0.1.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
